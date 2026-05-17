@@ -50,6 +50,12 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock(); // Initial call
 
+// Audio Sound Effects (Local and Offline PWA Feedback)
+const lockSound = new Audio('assets/lock.mp3');
+const unlockSound = new Audio('assets/unlock.mp3');
+const sirenSound = new Audio('assets/siren.mp3');
+sirenSound.loop = true;
+
 // Door Lock Toggle (Single Image)
 const lockBtn = document.getElementById('lockBtn');
 const lockProgressFill = document.getElementById('lockProgressFill');
@@ -63,8 +69,12 @@ function toggleLock() {
     isLocked = !isLocked;
     if (isLocked) {
         lockBtn.src = 'assets/Locked_Button.png';
+        lockSound.currentTime = 0;
+        lockSound.play().catch(err => console.log('Lock audio blocked:', err));
     } else {
         lockBtn.src = 'assets/Unlocked_Button.png';
+        unlockSound.currentTime = 0;
+        unlockSound.play().catch(err => console.log('Unlock audio blocked:', err));
     }
 }
 
@@ -240,6 +250,10 @@ function triggerEmergencyToggle() {
             lockBtn.style.opacity = '0.5';
             lockBtn.style.cursor = 'not-allowed';
         }
+        // Play looping siren sound
+        sirenSound.currentTime = 0;
+        sirenSound.play().catch(err => console.log('Siren audio blocked:', err));
+        
         // Auto light to 100% and disable manual adjustments
         if (lightSlider) {
             previousLightValue = lightSlider.value;
@@ -254,6 +268,10 @@ function triggerEmergencyToggle() {
             lockBtn.style.opacity = '1';
             lockBtn.style.cursor = 'pointer';
         }
+        // Stop and reset siren sound
+        sirenSound.pause();
+        sirenSound.currentTime = 0;
+        
         // Restore light to previous value and set disabled state based on AUTO active state
         if (lightSlider) {
             lightSlider.value = previousLightValue;

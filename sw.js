@@ -16,7 +16,10 @@ const ASSETS = [
     './assets/Unlocked_Button.png',
     './assets/icon-192.png',
     './assets/icon-512.png',
-    './assets/favicon.png'
+    './assets/favicon.png',
+    './assets/lock.mp3',
+    './assets/unlock.mp3',
+    './assets/siren.mp3'
 ];
 
 // Install Event - Pre-cache critical assets
