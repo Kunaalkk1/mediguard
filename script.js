@@ -1,23 +1,25 @@
 // Continuous Screen Scaling Monitor (UHD / 4K / Mobile Proportional Sizing)
 function adjustRootFontSize() {
-    // Design reference resolution (16:9 base)
-    const designWidth = 1920;
-    const designHeight = 1080;
-    
     const currentWidth = window.innerWidth;
-    const currentHeight = window.innerHeight;
     
-    // Choose the minimum scale ratio to fit the content perfectly in both axes without overflow
-    const scaleX = currentWidth / designWidth;
-    const scaleY = currentHeight / designHeight;
-    const scale = Math.min(scaleX, scaleY);
+    // We optimize for a 1440px base standard desktop viewport
+    const baseWidth = 1440;
+    const baseFontSize = 20.5; // Significantly increased base font size for large bold look
     
-    // Base standard HTML root font size (16px)
-    const baseFontSize = 16;
-    let targetFontSize = baseFontSize * scale;
+    let targetFontSize = baseFontSize;
     
-    // Safety boundaries (cap size range)
-    targetFontSize = Math.max(9, Math.min(targetFontSize, 48));
+    if (currentWidth > baseWidth) {
+        // Scale up proportionally to fill gaps on high-res / UHD / 4K screens
+        const scale = currentWidth / baseWidth;
+        targetFontSize = baseFontSize * scale;
+    } else {
+        // For standard/smaller screens, maintain bold legibility with a soft downscale limit
+        const scale = currentWidth / baseWidth;
+        targetFontSize = Math.max(17.5, baseFontSize * scale);
+    }
+    
+    // Cap at a safe maximum of 52px to prevent extreme scaling on ultra-wides
+    targetFontSize = Math.min(targetFontSize, 52);
     
     document.documentElement.style.fontSize = targetFontSize + 'px';
 }
