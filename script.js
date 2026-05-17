@@ -1,3 +1,32 @@
+// Continuous Screen Scaling Monitor (UHD / 4K / Mobile Proportional Sizing)
+function adjustRootFontSize() {
+    // Design reference resolution (16:9 base)
+    const designWidth = 1920;
+    const designHeight = 1080;
+    
+    const currentWidth = window.innerWidth;
+    const currentHeight = window.innerHeight;
+    
+    // Choose the minimum scale ratio to fit the content perfectly in both axes without overflow
+    const scaleX = currentWidth / designWidth;
+    const scaleY = currentHeight / designHeight;
+    const scale = Math.min(scaleX, scaleY);
+    
+    // Base standard HTML root font size (16px)
+    const baseFontSize = 16;
+    let targetFontSize = baseFontSize * scale;
+    
+    // Safety boundaries (cap size range)
+    targetFontSize = Math.max(9, Math.min(targetFontSize, 48));
+    
+    document.documentElement.style.fontSize = targetFontSize + 'px';
+}
+
+// Bind resize and orientation event listeners to continuously monitor and scale layout
+window.addEventListener('resize', adjustRootFontSize);
+window.addEventListener('orientationchange', adjustRootFontSize);
+adjustRootFontSize(); // Apply scale immediately
+
 // Real-time Clock Update
 function updateClock() {
     const clockElement = document.getElementById('realtimeClock');

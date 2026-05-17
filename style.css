@@ -9,8 +9,8 @@
     --muted-gray: #6C757D;
     --header-bg: #133847;
     --header-sec-text: #8BB4C4;
-    --border-radius: 20px;
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    --border-radius: 1.25rem;
+    --shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -58,17 +58,17 @@ body.emergency-active {
 }
 
 .emergency-overlay.active {
-    box-shadow: inset 0 0 100px 30px rgba(200, 35, 51, 0.8);
+    box-shadow: inset 0 0 6.25rem 1.875rem rgba(200, 35, 51, 0.8);
     animation: pulseRed 2s infinite alternate;
 }
 
 @keyframes pulseRed {
     from {
-        box-shadow: inset 0 0 80px 20px rgba(200, 35, 51, 0.6);
+        box-shadow: inset 0 0 5rem 1.25rem rgba(200, 35, 51, 0.6);
     }
 
     to {
-        box-shadow: inset 0 0 120px 40px rgba(200, 35, 51, 0.9);
+        box-shadow: inset 0 0 7.5rem 2.5rem rgba(200, 35, 51, 0.9);
     }
 }
 
@@ -77,18 +77,18 @@ body.emergency-active {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    padding: 20px;
-    gap: 20px;
+    padding: 1.25rem;
+    gap: 1.25rem;
     justify-content: space-between;
 }
 
 /* Header */
 .header {
     width: 100%;
-    height: 80px;
+    height: 5rem;
     background: var(--header-bg);
-    border-radius: 40px;
-    padding: 0 30px;
+    border-radius: 2.5rem;
+    padding: 0 1.875rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -96,23 +96,23 @@ body.emergency-active {
 }
 
 .logo-section {
-    height: 60px;
+    height: 3.75rem;
     background: #FFF;
-    border-radius: 35px;
+    border-radius: 2.1875rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 15px;
+    padding: 0 0.9375rem;
 }
 
 .logo-img {
-    height: 48px;
+    height: 3rem;
     object-fit: contain;
 }
 
 .title-section h1 {
     color: #FFF;
-    font-size: 26px;
+    font-size: 1.625rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -121,16 +121,16 @@ body.emergency-active {
 
 .header-divider {
     width: 1px;
-    height: 40px;
+    height: 2.5rem;
     background: rgba(255, 255, 255, 0.4);
-    margin: 0 10px;
+    margin: 0 0.625rem;
 }
 
 .patient-info {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    font-size: 14px;
+    gap: 0.25rem;
+    font-size: 0.875rem;
 }
 
 .info-row {
@@ -139,7 +139,7 @@ body.emergency-active {
 
 .info-row .label {
     color: var(--header-sec-text);
-    width: 130px;
+    width: 8.125rem;
 }
 
 .info-row .value {
@@ -151,7 +151,7 @@ body.emergency-active {
 .main-grid {
     display: flex;
     flex: 1;
-    gap: 20px;
+    gap: 1.25rem;
     width: 100%;
     min-height: 0;
     /* Important for flex children scrolling/fitting */
@@ -161,7 +161,7 @@ body.emergency-active {
 .col {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 1.25rem;
     min-height: 0;
     height: 100%;
 }
@@ -182,7 +182,7 @@ body.emergency-active {
 .card {
     background: var(--card-bg);
     border-radius: var(--border-radius);
-    padding: 20px;
+    padding: 1.25rem;
     box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
@@ -190,22 +190,22 @@ body.emergency-active {
 
 .card-title {
     text-align: center;
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 700;
     color: var(--text-navy);
     text-transform: uppercase;
-    margin-bottom: 15px;
+    margin-bottom: 0.9375rem;
 }
 
 /* Patient Monitor (Left 1) */
 .patient-monitor {
     flex: 6;
     justify-content: center;
-    padding: 8px 20px;
+    padding: 0.5rem 1.25rem;
 }
 
 .patient-monitor .card-title {
-    margin-bottom: 4px;
+    margin-bottom: 0.25rem;
 }
 
 .monitor-data {
@@ -216,42 +216,42 @@ body.emergency-active {
 
 .data-row {
     display: grid;
-    grid-template-columns: 1fr auto 50px;
+    grid-template-columns: 1fr auto 3.125rem;
     align-items: center;
 }
 
 .data-label {
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 500;
 }
 
 .data-value {
-    font-size: 28px;
+    font-size: 1.75rem;
     font-weight: 700;
     line-height: 1;
     text-align: right;
-    padding-right: 10px;
+    padding-right: 0.625rem;
 }
 
 .data-unit {
-    font-size: 14px;
+    font-size: 0.875rem;
 }
 
 /* Assigned Practitioners (Left 2) */
 .assigned-practitioners {
     flex: 7;
     justify-content: center;
-    padding: 12px 20px;
+    padding: 0.75rem 1.25rem;
 }
 
 .assigned-practitioners .card-title {
-    margin-bottom: 8px;
+    margin-bottom: 0.5rem;
 }
 
 .practitioner-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0.375rem;
 }
 
 .practitioner-row {
@@ -262,11 +262,11 @@ body.emergency-active {
 
 .prac-name {
     font-weight: 700;
-    font-size: 16px;
+    font-size: 1rem;
 }
 
 .prac-role {
-    font-size: 15px;
+    font-size: 0.9375rem;
     font-weight: 500;
 }
 
@@ -274,14 +274,14 @@ body.emergency-active {
 .scheduled-appointments {
     flex: 26;
     overflow: hidden;
-    padding: 15px 20px;
+    padding: 0.9375rem 1.25rem;
 }
 
 .schedule-header {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 5px;
+    margin-bottom: 0.3125rem;
 }
 
 .table-wrapper {
@@ -293,27 +293,27 @@ body.emergency-active {
 .realtime-clock {
     color: var(--accent-teal);
     font-weight: 700;
-    font-size: 15px;
+    font-size: 0.9375rem;
 }
 
 .disclaimer {
-    font-size: 9px;
+    font-size: 0.5625rem;
     color: var(--muted-gray);
     text-align: center;
     text-transform: uppercase;
-    margin-top: 5px;
+    margin-top: 0.3125rem;
 }
 
 .schedule-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 0.8125rem;
     flex: 1;
 }
 
 .schedule-table th,
 .schedule-table td {
-    padding: 8px 4px;
+    padding: 0.5rem 0.25rem;
     text-align: left;
 }
 
@@ -345,10 +345,10 @@ body.emergency-active {
 .environment-controls {
     flex: 12;
     justify-content: flex-start;
-    padding: 25px;
+    padding: 1.5625rem;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 1.25rem;
 }
 
 .env-top-row {
@@ -360,17 +360,17 @@ body.emergency-active {
 .env-stat {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
 }
 
 .env-icon {
-    height: 35px;
+    height: 2.1875rem;
     width: auto;
     object-fit: contain;
 }
 
 .env-value {
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: 700;
 }
 
@@ -382,15 +382,15 @@ body.emergency-active {
 .lock-toggle {
     display: flex;
     background: transparent;
-    border-radius: 20px;
+    border-radius: 1.25rem;
     padding: 0;
-    gap: 4px;
+    gap: 0.25rem;
 }
 
 .toggle-btn {
-    width: 40px;
-    height: 32px;
-    border-radius: 16px;
+    width: 2.5rem;
+    height: 2rem;
+    border-radius: 1rem;
     border: none;
     cursor: pointer;
     background: transparent;
@@ -401,7 +401,7 @@ body.emergency-active {
 }
 
 .toggle-btn img {
-    height: 18px;
+    height: 1.125rem;
     object-fit: contain;
 }
 
@@ -421,24 +421,24 @@ body.emergency-active {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 20px;
+    margin-top: 1.25rem;
 }
 
 .sliders-section {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 1.25rem;
     flex: 1;
 }
 
 .slider-row {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 0.9375rem;
 }
 
 .slider-icon {
-    height: 25px;
+    height: 1.5625rem;
     width: auto;
 }
 
@@ -446,17 +446,17 @@ body.emergency-active {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 30px;
-    background: linear-gradient(to right, var(--slider-left) calc((var(--value-num, 0) / 100) * (100% - 28px) + 14px), var(--slider-track) calc((var(--value-num, 0) / 100) * (100% - 28px) + 14px));
-    border-radius: 15px;
+    height: 1.875rem;
+    background: linear-gradient(to right, var(--slider-left) calc((var(--value-num, 0) / 100) * (100% - 1.75rem) + 0.875rem), var(--slider-track) calc((var(--value-num, 0) / 100) * (100% - 1.75rem) + 0.875rem));
+    border-radius: 0.9375rem;
     outline: none;
 }
 
 .custom-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 28px;
-    height: 28px;
+    width: 1.75rem;
+    height: 1.75rem;
     border-radius: 50%;
     background: var(--accent-teal);
     border: 2.5px solid var(--text-navy);
@@ -464,8 +464,8 @@ body.emergency-active {
 }
 
 .custom-slider::-moz-range-thumb {
-    width: 28px;
-    height: 28px;
+    width: 1.75rem;
+    height: 1.75rem;
     border-radius: 50%;
     background: var(--accent-teal);
     border: 2.5px solid var(--text-navy);
@@ -490,12 +490,12 @@ body.emergency-active {
 }
 
 .auto-btn-section {
-    margin-left: 20px;
+    margin-left: 1.25rem;
 }
 
 .auto-btn {
-    width: 80px;
-    height: 80px;
+    width: 5rem;
+    height: 5rem;
     border-radius: 50%;
     border: none;
     background: transparent;
@@ -519,11 +519,11 @@ body.emergency-active {
 
 @keyframes autoGlow {
     from {
-        filter: drop-shadow(0 0 10px rgba(60, 167, 179, 0.8)) drop-shadow(0 0 20px rgba(60, 167, 179, 0.4));
+        filter: drop-shadow(0 0 0.625rem rgba(60, 167, 179, 0.8)) drop-shadow(0 0 1.25rem rgba(60, 167, 179, 0.4));
     }
 
     to {
-        filter: drop-shadow(0 0 20px rgba(60, 167, 179, 1)) drop-shadow(0 0 40px rgba(60, 167, 179, 0.85)) drop-shadow(0 0 60px rgba(60, 167, 179, 0.7));
+        filter: drop-shadow(0 0 1.25rem rgba(60, 167, 179, 1)) drop-shadow(0 0 2.5rem rgba(60, 167, 179, 0.85)) drop-shadow(0 0 3.75rem rgba(60, 167, 179, 0.7));
     }
 }
 
@@ -532,17 +532,17 @@ body.emergency-active {
     flex: 13;
     align-items: center;
     justify-content: center;
-    padding: 15px;
+    padding: 0.9375rem;
 }
 
 .emergency-card .card-title {
-    margin-bottom: 5px;
+    margin-bottom: 0.3125rem;
 }
 
 .sos-container {
     position: relative;
-    width: min(220px, 28vh);
-    height: min(220px, 28vh);
+    width: min(13.75rem, 28vh);
+    height: min(13.75rem, 28vh);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -595,8 +595,8 @@ body.emergency-active {
 }
 
 .sos-instruction {
-    margin-top: 5px;
-    font-size: 15px;
+    margin-top: 0.3125rem;
+    font-size: 0.9375rem;
     font-weight: 700;
     color: var(--text-navy);
 }
@@ -604,24 +604,24 @@ body.emergency-active {
 /* Right Column (Stats & AI Insights) */
 .current-stats {
     flex: 11;
-    padding: 25px;
+    padding: 1.5625rem;
 }
 
 .ai-insights {
     flex: 9;
-    padding: 25px;
+    padding: 1.5625rem;
 }
 
 .stats-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.5rem;
     flex: 1;
 }
 
 .stat-row {
     display: grid;
-    grid-template-columns: auto 15px 1fr;
+    grid-template-columns: auto 0.9375rem 1fr;
     align-items: center;
 }
 
@@ -635,7 +635,7 @@ body.emergency-active {
 }
 
 .stat-options {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: var(--text-navy);
 }
 
@@ -657,9 +657,9 @@ body.emergency-active {
     z-index: 10000;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
+    font-size: 1.5rem;
     text-align: center;
-    padding: 20px;
+    padding: 1.25rem;
 }
 
 @media screen and (orientation: portrait) {
