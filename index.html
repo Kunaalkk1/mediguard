@@ -272,7 +272,22 @@
     </div>
 
     <div class="orientation-warning">
-        Please rotate your device to landscape mode.
+        <div class="warning-content">
+            <div class="warning-logo-wrapper">
+                <img src="assets/MediGuard_Logo.png" alt="MediGuard Logo" class="warning-logo">
+            </div>
+            <svg class="phone-rotate-icon" viewBox="0 0 100 100" width="120" height="120">
+                <g class="phone-group">
+                    <rect x="25" y="10" width="50" height="80" rx="8" stroke="#FFF" stroke-width="4" fill="none"/>
+                    <rect x="31" y="18" width="38" height="60" rx="4" fill="rgba(255,255,255,0.15)"/>
+                    <circle cx="50" cy="84" r="3" fill="#FFF"/>
+                </g>
+                <path class="arrow-path" d="M 65 25 Q 85 25 85 50 Q 85 75 65 75" fill="none" stroke="var(--accent-teal)" stroke-width="4" stroke-linecap="round"/>
+                <polygon class="arrow-head" points="68,70 60,75 68,80" fill="var(--accent-teal)"/>
+            </svg>
+            <h2 class="warning-title">Portrait Mode Detected</h2>
+            <p class="warning-text">For the best MediGuard dashboard experience, please rotate your device to landscape orientation.</p>
+        </div>
     </div>
 
     <script src="script.js"></script>
