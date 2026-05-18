@@ -52,7 +52,7 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Fetch Event - Serve from Cache, with Network Fallback
+// Fetch Event - Network First, falling back to Cache
 self.addEventListener('fetch', event => {
     // Only intercept standard HTTP/HTTPS requests
     if (!event.request.url.startsWith(self.location.origin) && !event.request.url.startsWith('http')) {
@@ -60,26 +60,20 @@ self.addEventListener('fetch', event => {
     }
 
     event.respondWith(
-        caches.match(event.request)
-            .then(cachedResponse => {
-                if (cachedResponse) {
-                    return cachedResponse;
-                }
-
-                return fetch(event.request)
-                    .then(networkResponse => {
-                        // Check if we received a valid response to cache dynamically
-                        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-                            const responseToCache = networkResponse.clone();
-                            caches.open(CACHE_NAME).then(cache => {
-                                cache.put(event.request, responseToCache);
-                            });
-                        }
-                        return networkResponse;
-                    })
-                    .catch(() => {
-                        // Offline fallback
+        fetch(event.request)
+            .then(networkResponse => {
+                // Check if we received a valid response to cache dynamically
+                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then(cache => {
+                        cache.put(event.request, responseToCache);
                     });
+                }
+                return networkResponse;
+            })
+            .catch(() => {
+                // Offline fallback - serve from cache
+                return caches.match(event.request);
             })
     );
 });
