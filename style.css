@@ -652,14 +652,72 @@ body.emergency-active {
     left: 0;
     right: 0;
     bottom: 0;
-    background: var(--bg-color);
+    background: linear-gradient(135deg, var(--header-bg), var(--bg-color));
     color: #FFF;
     z-index: 10000;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
     text-align: center;
-    padding: 1.25rem;
+    padding: 2rem;
+}
+
+.warning-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 400px;
+}
+
+.warning-logo-wrapper {
+    background: #FFF;
+    padding: 1rem 2rem;
+    border-radius: 2rem;
+    margin-bottom: 3rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+}
+
+.warning-logo {
+    height: 3rem;
+    object-fit: contain;
+}
+
+.phone-rotate-icon {
+    margin-bottom: 2rem;
+}
+
+.phone-group {
+    transform-origin: 50px 50px;
+    animation: rotateDevice 2.5s ease-in-out infinite;
+}
+
+.arrow-path, .arrow-head {
+    opacity: 0.8;
+    animation: fadeArrow 2.5s ease-in-out infinite;
+}
+
+.warning-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    letter-spacing: 1px;
+}
+
+.warning-text {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.5;
+}
+
+@keyframes rotateDevice {
+    0%, 15% { transform: rotate(0deg); }
+    40%, 60% { transform: rotate(-90deg); }
+    85%, 100% { transform: rotate(0deg); }
+}
+
+@keyframes fadeArrow {
+    0%, 15% { opacity: 0; }
+    30%, 40% { opacity: 0.8; }
+    60%, 100% { opacity: 0; }
 }
 
 @media screen and (orientation: portrait) {
