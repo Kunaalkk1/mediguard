@@ -573,7 +573,14 @@ body.emergency-active {
     /* 2 * pi * 100 */
     stroke-dashoffset: 628;
     opacity: 0;
-    transition: opacity 0.15s ease;
+    /* Transition back to idle state smoothly on release */
+    transition: stroke-dashoffset 1.5s ease-out, opacity 1.5s ease-out;
+}
+
+.sos-progress-fill.holding {
+    opacity: 1;
+    /* No transition on stroke-dashoffset while holding to keep sync with JS */
+    transition: opacity 0.1s ease, stroke-dashoffset 0s;
 }
 
 .sos-btn {

@@ -201,9 +201,9 @@ function startHold(e) {
         e.preventDefault();
     }
     
-    // Ensure we start from 0 progress and make the progress indicator visible
+    // Add holding class to disable transitions during active press
+    sosProgressFill.classList.add('holding');
     sosProgressFill.style.strokeDashoffset = maxOffset;
-    sosProgressFill.style.opacity = '1';
     
     startTime = Date.now();
     updateProgress();
@@ -232,16 +232,9 @@ function cancelHold() {
 }
 
 function resetProgress() {
-    // Fade out the progress circle
-    sosProgressFill.style.opacity = '0';
-    
-    // After the fade-out transition (150ms), reset the stroke-dashoffset back to 628
-    // only if the user hasn't started holding again (opacity remains 0).
-    setTimeout(() => {
-        if (sosProgressFill.style.opacity === '0') {
-            sosProgressFill.style.strokeDashoffset = maxOffset;
-        }
-    }, 150);
+    // Remove holding class to trigger smooth transition back and fade out
+    sosProgressFill.classList.remove('holding');
+    sosProgressFill.style.strokeDashoffset = maxOffset;
 }
 
 let previousLightValue = 70;
