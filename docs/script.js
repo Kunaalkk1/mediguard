@@ -244,7 +244,9 @@ function triggerEmergencyToggle() {
     document.body.classList.toggle('emergency-active');
     
     if (emergencyOverlay.classList.contains('active')) {
-        emergencyStatusText.innerHTML = `None / <span class="active">SOS</span> / HAZMAT / Medical Emergency`;
+        if (emergencyStatusText) {
+            emergencyStatusText.innerHTML = `None / <span class="active">SOS</span> / HAZMAT / Medical Emergency`;
+        }
         // Auto-unlock door on emergency and disable lock button visually
         isLocked = false;
         if (lockBtn) {
@@ -265,7 +267,9 @@ function triggerEmergencyToggle() {
             updateLedStatusText(100);
         }
     } else {
-        emergencyStatusText.innerHTML = `<span class="active">None</span> / SOS / HAZMAT / Medical Emergency`;
+        if (emergencyStatusText) {
+            emergencyStatusText.innerHTML = `<span class="active">None</span> / SOS / HAZMAT / Medical Emergency`;
+        }
         if (lockBtn) {
             lockBtn.style.opacity = '1';
             lockBtn.style.cursor = 'pointer';
