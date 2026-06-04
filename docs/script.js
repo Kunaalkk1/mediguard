@@ -183,7 +183,7 @@ if (autoBtn) {
     autoBtn.addEventListener('touchcancel', cancelAutoHold);
 }
 
-// SOS Button Logic (3 Second Hold)
+// SOS Button Logic (2 Second Hold)
 const sosBtn = document.getElementById('sosBtn');
 const sosProgressFill = document.getElementById('sosProgressFill');
 const emergencyOverlay = document.getElementById('emergencyOverlay');
@@ -201,6 +201,10 @@ function startHold(e) {
         e.preventDefault();
     }
     
+    // Ensure we start from 0 progress and make the progress indicator visible
+    sosProgressFill.style.strokeDashoffset = maxOffset;
+    sosProgressFill.style.opacity = '1';
+    
     startTime = Date.now();
     updateProgress();
 }
@@ -209,7 +213,7 @@ function updateProgress() {
     const elapsed = Date.now() - startTime;
     let progress = Math.min(elapsed / holdDuration, 1);
     
-    // Update stroke-dashoffset (from 502 down to 0)
+    // Update stroke-dashoffset (from 628 down to 0)
     const currentOffset = maxOffset - (progress * maxOffset);
     sosProgressFill.style.strokeDashoffset = currentOffset;
     
@@ -228,7 +232,16 @@ function cancelHold() {
 }
 
 function resetProgress() {
-    sosProgressFill.style.strokeDashoffset = maxOffset;
+    // Fade out the progress circle
+    sosProgressFill.style.opacity = '0';
+    
+    // After the fade-out transition (150ms), reset the stroke-dashoffset back to 628
+    // only if the user hasn't started holding again (opacity remains 0).
+    setTimeout(() => {
+        if (sosProgressFill.style.opacity === '0') {
+            sosProgressFill.style.strokeDashoffset = maxOffset;
+        }
+    }, 150);
 }
 
 let previousLightValue = 70;

@@ -572,7 +572,8 @@ body.emergency-active {
     stroke-dasharray: 628;
     /* 2 * pi * 100 */
     stroke-dashoffset: 628;
-    transition: stroke-dashoffset 0.1s linear;
+    opacity: 0;
+    transition: opacity 0.15s ease;
 }
 
 .sos-btn {
