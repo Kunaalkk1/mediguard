@@ -4,7 +4,7 @@ import time
 from collections import deque
 from grove_base import ON_PI, grovepi
 
-DHT_PORT = 4          # digital D4   # CONFIRM ON PI
+DHT_PORT = 4          # digital D4
 DHT_TYPE = 0          # 0 = DHT11 (blue)
 WINDOW = 50           # average over the last 50 readings
 MIN_INTERVAL = 2.0    # seconds: DHT can't be read faster than this

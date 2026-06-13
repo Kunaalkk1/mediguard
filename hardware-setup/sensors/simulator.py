@@ -1,7 +1,7 @@
 """
 Why this file exists guys?
   reader.py calls the real drivers and gives you whatever values they
-  happen to produce, so you can't *control* what comes out. simulator.py
+  happen to produce -- you can't *control* what comes out. simulator.py
   lets YOU decide the snapshot, so you can force a specific situation
   (e.g. a gas leak) on demand and check the brain reacts correctly.
 
@@ -11,47 +11,64 @@ Two modes:
                        brain behaviour at a time.
 """
 
+
 import random
+
 
 SCENARIOS = [
     "awake", "resting", "out_of_bed", "distressed",   # patient states
-    "medical", "gas_leak", "sos",                      # emergencies
+    "gas_leak", "sos",                                 # room states
 ]
 
 
 def _base_random():
-
+    
     on_bed = random.random() < 0.8  # usually someone is in bed
 
     return {
-        "pulse":        random.randint(62, 95),        # bpm, normal resting range
-        "spo2":         random.randint(96, 100),       # %, healthy blood oxygen
-        "motion":       random.choice([0, 1]),         # PIR: 0 = still, 1 = movement
+        "pulse":        random.randint(62, 95),        
+        "spo2":         random.randint(96, 100),       
+        "motion":       random.choice([0, 1]),        
         "pressure_raw": random.randint(600, 900) if on_bed else random.randint(0, 120),
-        "on_bed":       on_bed,                         # derived from pressure
-        "light":        random.randint(150, 850),      # LDR analog
-        "temperature":  round(random.uniform(20.0, 26.0), 1),  # deg C, comfortable
-        "humidity":     round(random.uniform(40.0, 60.0), 1),  # %, comfortable
-        "gas":          random.randint(40, 200),       # MQ135
-        "sos":          0,                              # button: 0 = not pressed
+        "on_bed":       on_bed,                         
+        "light":        random.randint(150, 850),      
+        "temperature":  round(random.uniform(20.0, 26.0), 1),  
+        "humidity":     round(random.uniform(40.0, 60.0), 1),  
+        "gas":          random.randint(40, 200),      
+        "sos":          0,                             
     }
+
 
 _SCENARIO_OVERRIDES = {
     
-    "awake":      {"on_bed": True,  "pressure_raw": 770},
-    "resting":    {"on_bed": True,  "pressure_raw": 780, "motion": 0},
-    "out_of_bed": {"on_bed": False, "pressure_raw": 35,  "motion": 0},
-    "distressed": {"on_bed": True,  "pressure_raw": 760, "motion": 1},
 
-    "medical":    {"pulse": 145, "spo2": 84},
+    # On the bed and occasionally moving. motion is intentionally
+    # left out so it keeps the random base value (sometimes 0, sometimes 1).
+    "awake":      {"on_bed": True,  "pressure_raw": 770},
+
+    # On the bed, completely still. -> Resting (after the brain's 15-min timer).
+    "resting":    {"on_bed": True,  "pressure_raw": 780, "motion": 0},
+
+    # Nobody on the bed. Pressure reads near zero -> Out of bed.
+    "out_of_bed": {"on_bed": False, "pressure_raw": 35,  "motion": 0},
+
+    # Bad vitals: low oxygen and an out-of-range pulse. Per the spec this is
+    # what makes the PATIENT STATE "Distressed"
+    "distressed": {"on_bed": True,  "pressure_raw": 760, "pulse": 145, "spo2": 84},
+
+    # High hazardous-gas concentration -> Room State Hazardous.
     "gas_leak":   {"gas": 720},
 
+    # Patient pressed the SOS button -> Room State Emergency.
     "sos":        {"sos": 1},
 }
 
 
 def read_all(scenario=None):
-    
+    """
+    Return one fake snapshot.
+
+    """
     snapshot = _base_random()
 
     if scenario is not None:
@@ -60,6 +77,7 @@ def read_all(scenario=None):
                 f"Unknown scenario {scenario!r}. "
                 f"Choose one of: {', '.join(SCENARIOS)}"
             )
+        
         snapshot.update(_SCENARIO_OVERRIDES[scenario])
 
     return snapshot

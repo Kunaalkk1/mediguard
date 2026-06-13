@@ -1,0 +1,17 @@
+Analog Ports :
+A0 - Light Sensor - Direct Grove connection
+A1 - RP-S40-ST Pressure Sensor - Need to be connected via a grove connector+PCB with
+                                 a voltage divider circuit (30-47kohms R2)
+A2 - MQ135 Gas sensor - Need to be connected via a grove connector+PCB
+
+Digital Ports :
+D2 - PIR Sensor - Direct Grove connection
+D3 - LED light (Red) - Direct Grove connection
+D4 - DHT11 Sensor - Direct Grove connection
+D5 - Buzzer - Direct Grove connection
+D6 - Solenoid Relay - Direct Grove Connection
+D7 - SOS Button - Direct Grove connection
+D8 - Free
+
+I2C :
+GPIO 2,3 - Max30102 Sensor
