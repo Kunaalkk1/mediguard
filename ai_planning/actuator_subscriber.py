@@ -19,16 +19,16 @@ def on_message(client, userdata, msg):
     print(f"Value: {value}")
 
     if topic.endswith("/cmd/light"):
-        print(f"Fake room light brightness is now {value}%")
+        print(f"Room light brightness is now {value}%")
 
     elif topic.endswith("/cmd/fan"):
-        print(f"Fake fan speed is now {value}%")
+        print(f"Fan speed is now {value}%")
 
     elif topic.endswith("/cmd/door"):
-        print(f"Fake door state is now {value}")
+        print(f"Door state is now {value}")
 
     elif topic.endswith("/cmd/buzzer"):
-        print(f"Fake buzzer state is now {value}")
+        print(f"Buzzer state is now {value}")
 
 
 def main():
@@ -40,7 +40,7 @@ def main():
     topic = f"hospital/{ROOM_ID}/cmd/#"
     client.subscribe(topic)
 
-    print(f"Fake actuator is listening on topic: {topic}")
+    print(f"Actuator is listening on topic: {topic}")
     client.loop_forever()
 
 
