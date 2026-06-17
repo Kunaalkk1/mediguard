@@ -1,61 +1,49 @@
 """
-Turns raw sensor numbers into the human-readable BUCKETS shown on the
-dashboard's three input rows:
-
+Display buckets:
     Temperature : Frosty / Cold / Neutral / Warm / Hot
     Sunlight    : Dark / Dull / Bright
     Air Quality : Normal / Humid / Hazardous
-
 """
 
-FROSTY  = "Frosty"
-COLD    = "Cold"
-NEUTRAL = "Neutral"
-WARM    = "Warm"
-HOT     = "Hot"
 
-DARK   = "Dark"
-DULL   = "Dull"
-BRIGHT = "Bright"
+GAS_HAZARD_THRESHOLD = 400    # raw 0-1023; at/above this = gas leak        
+TEMP_FIRE_THRESHOLD  = 45     # deg C; at/above this = fire / unsafe heat 
 
-AIR_NORMAL = "Normal"
-HUMID      = "Humid"
-HAZARDOUS  = "Hazardous"
+FROSTY, COLD, NEUTRAL, WARM, HOT = "Frosty", "Cold", "Neutral", "Warm", "Hot"
+DARK, DULL, BRIGHT               = "Dark", "Dull", "Bright"
+AIR_NORMAL, HUMID, HAZARDOUS     = "Normal", "Humid", "Hazardous"
 
 
-def classify_temperature(celsius,
-                         frosty_max=12,    # below this -> Frosty
-                         cold_max=18,      # below this -> Cold
-                         neutral_max=24,   # below this -> Neutral
-                         warm_max=28):     # below this -> Warm, else Hot
-    
-    if celsius < frosty_max:
-        return FROSTY
-    if celsius < cold_max:
-        return COLD
-    if celsius < neutral_max:
-        return NEUTRAL
-    if celsius < warm_max:
-        return WARM
+def is_air_hazardous(gas, threshold=GAS_HAZARD_THRESHOLD):
+    """True if the gas reading indicates a hazardous leak."""
+    return gas >= threshold
+
+
+def is_temperature_hazardous(celsius, fire_threshold=TEMP_FIRE_THRESHOLD):
+    """True if the temperature is high enough to indicate a fire / unsafe heat.
+    (Easily extended to flag dangerous COLD too, if your spec needs it.)"""
+    return celsius >= fire_threshold
+
+
+def classify_temperature(celsius, frosty_max=12, cold_max=18, neutral_max=24, warm_max=28):
+    """Drop a temperature into one of five comfort bands (for display)."""
+    if celsius < frosty_max:  return FROSTY
+    if celsius < cold_max:    return COLD
+    if celsius < neutral_max: return NEUTRAL
+    if celsius < warm_max:    return WARM
     return HOT
 
 
-def classify_sunlight(light,
-                      dark_max=300,    # below this -> Dark
-                      dull_max=650):   # below this -> Dull, else Bright
-    
-    if light < dark_max:
-        return DARK
-    if light < dull_max:
-        return DULL
+def classify_sunlight(light, dark_max=300, dull_max=650):
+    """Drop the light reading into Dark / Dull / Bright (higher = brighter)."""
+    if light < dark_max: return DARK
+    if light < dull_max: return DULL
     return BRIGHT
 
 
-def classify_air_quality(gas, humidity,
-                        gas_threshold=400,    # at/above this -> Hazardous
-                        humid_threshold=65):  # at/above this -> Humid
-    
-    if gas >= gas_threshold:
+def classify_air_quality(gas, humidity, humid_threshold=65):
+    """Combine gas + humidity into one air-quality label. Gas danger wins."""
+    if is_air_hazardous(gas):
         return HAZARDOUS
     if humidity >= humid_threshold:
         return HUMID
@@ -63,36 +51,37 @@ def classify_air_quality(gas, humidity,
 
 
 def classify_all(snapshot):
-
+    """Read the relevant fields from a snapshot and return all three display
+    buckets in a dict -- what the dashboard will call."""
     return {
         "temperature": classify_temperature(snapshot["temperature"]),
-        "sunlight":     classify_sunlight(snapshot["light"]),
-        "air_quality":  classify_air_quality(snapshot["gas"], snapshot["humidity"]),
+        "sunlight":    classify_sunlight(snapshot["light"]),
+        "air_quality": classify_air_quality(snapshot["gas"], snapshot["humidity"]),
     }
 
 
 if __name__ == "__main__":
-    print("Testing classify.py\n")
+    # Pull live snapshots and show the display buckets they produce.
+    # Uses the simulator so it runs on a laptop; on the Pi, swap this import for:  from reader import read_all
+    import os, sys
+    try:
+        from simulator import read_all
+    except ImportError:
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "sensors"))
+        from simulator import read_all
 
-    print("Temperature bands:")
-    for t in [5, 15, 21, 26, 31]:
-        print(f"  {t:3}C  -> {classify_temperature(t)}")
-    print()
+    print("classify.py -- live readings -> display buckets")
+    print("(simulator data; on the Pi import read_all from reader instead)\n")
 
-    print("Sunlight bands (LDR 0..1023):")
-    for L in [100, 450, 800]:
-        print(f"  {L:4}  -> {classify_sunlight(L)}")
-    print()
+    # two everyday readings, then a forced gas leak to show "Hazardous"
+    for tag in [None, None, "gas_leak"]:
+        snap = read_all(tag)
+        b = classify_all(snap)
+        print(f"[{tag or 'random'}]")
+        print(f"  readings: temp={snap['temperature']}C  humidity={snap['humidity']}%  "
+              f"light={snap['light']}  gas={snap['gas']}")
+        print(f"  buckets : Temperature={b['temperature']}  "
+              f"Sunlight={b['sunlight']}  Air Quality={b['air_quality']}")
+        print()
 
-    print("Air quality (gas, humidity):")
-    for g, h in [(100, 50), (100, 75), (720, 50), (720, 75)]:
-        print(f"  gas={g:3} humidity={h:2}%  -> {classify_air_quality(g, h)}")
-    print("  (last two: gas is hazardous regardless of humidity)")
-    print()
-
-    print("classify_all on a full snapshot:")
-    sample = {"temperature": 26.5, "light": 700, "gas": 100, "humidity": 72}
-    print(f"  {sample}")
-    print(f"  -> {classify_all(sample)}")
-
-    print("\nDone.")
+    print("Done.")

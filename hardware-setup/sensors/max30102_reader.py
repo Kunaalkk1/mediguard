@@ -1,6 +1,6 @@
 import random
 try:
-    import max30102          # talks to the sensor over I2C and this is a library by doug=burrel on github
+    import max30102          # talks to the sensor over I2C (0x57) and this is a library by doug=burrel on github
     import hrcalc            # does the heart-rate / SpO2 math
     SENSOR = max30102.MAX30102() 
     HAVE_SENSOR = True
