@@ -173,7 +173,7 @@ def main():
     while True:
         for state in test_states:
             print("\n==============================")
-            print("PUBLISHING FAKE SENSOR STATE")
+            print("PUBLISHING SENSOR STATE")
             print("==============================")
             print(json.dumps(state, indent=2))
 
