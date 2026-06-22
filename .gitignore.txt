@@ -1,0 +1,16 @@
+# Python virtual environment
+.venv/
+
+# Local settings / secrets
+.env
+
+# Python temporary files
+__pycache__/
+*.pyc
+
+# Generated planning files
+problem_latest.pddl
+plan_latest.txt
+
+# VS Code local settings
+.vscode/
