@@ -1,0 +1,13 @@
+# Python virtual environments
+.venv/
+
+# Local environment files
+.env
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Generated planner files
+problem_latest.pddl
+plan_latest.txt
