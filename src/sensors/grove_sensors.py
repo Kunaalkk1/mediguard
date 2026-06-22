@@ -40,7 +40,7 @@ def read_sos():
     if ON_PI:
         return grovepi.digitalRead(SOS_PORT) == 1
     else:
-        return random.choice([False, False, False, True])  # fake: rarely pressed
+        return False  # fake: rarely pressed
 
 
 def read_pressure():

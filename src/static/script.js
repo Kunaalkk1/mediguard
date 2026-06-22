@@ -47,9 +47,9 @@ setInterval(updateClock, 1000);
 updateClock(); // Initial call
 
 // Audio Sound Effects (Local and Offline PWA Feedback)
-const lockSound = new Audio('assets/lock.mp3');
-const unlockSound = new Audio('assets/unlock.mp3');
-const sirenSound = new Audio('assets/siren.mp3');
+const lockSound = new Audio('/static/assets/lock.mp3');
+const unlockSound = new Audio('/static/assets/unlock.mp3');
+const sirenSound = new Audio('/static/assets/siren.mp3');
 sirenSound.loop = true;
 
 // Door Lock Toggle (Single Image)
@@ -64,11 +64,11 @@ const lockMaxOffset = 234.3;
 function toggleLock() {
     isLocked = !isLocked;
     if (isLocked) {
-        lockBtn.src = 'assets/Locked_Button.png';
+        lockBtn.src = '/static/assets/Locked_Button.png';
         lockSound.currentTime = 0;
         lockSound.play().catch(err => console.log('Lock audio blocked:', err));
     } else {
-        lockBtn.src = 'assets/Unlocked_Button.png';
+        lockBtn.src = '/static/assets/Unlocked_Button.png';
         unlockSound.currentTime = 0;
         unlockSound.play().catch(err => console.log('Unlock audio blocked:', err));
     }
@@ -248,7 +248,7 @@ function triggerEmergencyToggle() {
         // Auto-unlock door on emergency and disable lock button visually
         isLocked = false;
         if (lockBtn) {
-            lockBtn.src = 'assets/Unlocked_Button.png';
+            lockBtn.src = '/static/assets/Unlocked_Button.png';
             lockBtn.style.opacity = '0.5';
             lockBtn.style.cursor = 'not-allowed';
         }
@@ -348,7 +348,7 @@ sliders.forEach(slider => {
 // Register Service Worker for PWA (Progressive Web App)
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
+        navigator.serviceWorker.register('/sw.js')
             .then(registration => {
                 console.log('MediGuard Service Worker registered successfully with scope:', registration.scope);
             })
@@ -357,3 +357,4 @@ if ('serviceWorker' in navigator) {
             });
     });
 }
+

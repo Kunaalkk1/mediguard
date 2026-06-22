@@ -1,25 +1,24 @@
 const CACHE_NAME = 'mediguard-cache-v1';
 const ASSETS = [
-    './',
-    './index.html',
-    './style.css',
-    './script.js',
-    './manifest.json',
-    './assets/AUTO_Button.png',
-    './assets/Fan_Icon.png',
-    './assets/Humidity_Icon.png',
-    './assets/Light_Icon.png',
-    './assets/Locked_Button.png',
-    './assets/MediGuard_Logo.png',
-    './assets/SOS_Button.png',
-    './assets/Temperature_Icon.png',
-    './assets/Unlocked_Button.png',
-    './assets/icon-192.png',
-    './assets/icon-512.png',
-    './assets/favicon.png',
-    './assets/lock.mp3',
-    './assets/unlock.mp3',
-    './assets/siren.mp3'
+    '/',
+    '/static/style.css',
+    '/static/script.js',
+    '/static/manifest.json',
+    '/static/assets/AUTO_Button.png',
+    '/static/assets/Fan_Icon.png',
+    '/static/assets/Humidity_Icon.png',
+    '/static/assets/Light_Icon.png',
+    '/static/assets/Locked_Button.png',
+    '/static/assets/MediGuard_Logo.png',
+    '/static/assets/SOS_Button.png',
+    '/static/assets/Temperature_Icon.png',
+    '/static/assets/Unlocked_Button.png',
+    '/static/assets/icon-192.png',
+    '/static/assets/icon-512.png',
+    '/static/assets/favicon.png',
+    '/static/assets/lock.mp3',
+    '/static/assets/unlock.mp3',
+    '/static/assets/siren.mp3'
 ];
 
 // Install Event - Pre-cache critical assets
@@ -54,6 +53,12 @@ self.addEventListener('activate', event => {
 
 // Fetch Event - Network First, falling back to Cache
 self.addEventListener('fetch', event => {
+    // NEVER cache the live data endpoint — always fetch fresh.
+    if (event.request.url.includes('/data')) {
+        event.respondWith(fetch(event.request));
+        return;
+    }
+
     // Only intercept standard HTTP/HTTPS requests
     if (!event.request.url.startsWith(self.location.origin) && !event.request.url.startsWith('http')) {
         return;
@@ -77,3 +82,4 @@ self.addEventListener('fetch', event => {
             })
     );
 });
+

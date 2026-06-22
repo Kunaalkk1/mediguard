@@ -9,8 +9,8 @@
     <meta http-equiv="Expires" content="0">
 
     <title>MediGuard Dashboard</title>
-    <link rel="icon" type="image/png" href="assets/favicon.png">
-    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="/static/assets/favicon.png">
+    <link rel="stylesheet" href="/static/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
 
     <!-- PWA Settings & Mobile Web App Meta Tags -->
@@ -19,10 +19,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MediGuard">
-    <link rel="apple-touch-icon" href="assets/icon-192.png">
+    <link rel="apple-touch-icon" href="/static/assets/icon-192.png">
 
     <!-- Web App Manifest Link -->
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="/static/manifest.json">
 </head>
 
 <body>
@@ -31,7 +31,7 @@
         <!-- HEADER -->
         <header class="header">
             <div class="logo-section">
-                <img src="assets/MediGuard_Logo.png" alt="MediGuard Logo" class="logo-img">
+                <img src="/static/assets/MediGuard_Logo.png" alt="MediGuard Logo" class="logo-img">
             </div>
             <div class="title-section">
                 <h1>INFORMATIVE WEB-UI FOR DEMO</h1>
@@ -56,12 +56,12 @@
                     <div class="monitor-data">
                         <div class="data-row">
                             <span class="data-label">Heart Rate :</span>
-                            <span class="data-value">79</span>
+                            <span class="data-value" id="heartRate">79</span>
                             <span class="data-unit">BPM</span>
                         </div>
                         <div class="data-row">
                             <span class="data-label">SPO2 :</span>
-                            <span class="data-value">98.2</span>
+                            <span class="data-value" id="spo2">98.2</span>
                             <span class="data-unit">%</span>
                         </div>
                     </div>
@@ -150,12 +150,12 @@
                 <div class="card environment-controls">
                     <div class="env-top-row">
                         <div class="env-stat">
-                            <img src="assets/Temperature_Icon.png" alt="Temp" class="env-icon">
-                            <span class="env-value">23°C</span>
+                            <img src="/static/assets/Temperature_Icon.png" alt="Temp" class="env-icon">
+                            <span class="env-value" id="tempValue">23°C</span>
                         </div>
                         <div class="env-stat">
-                            <img src="assets/Humidity_Icon.png" alt="Humidity" class="env-icon">
-                            <span class="env-value">17%</span>
+                            <img src="/static/assets/Humidity_Icon.png" alt="Humidity" class="env-icon">
+                            <span class="env-value" id="humidityValue">17%</span>
                         </div>
                         <div class="door-lock">
                             <div class="lock-toggle" id="lockToggle"
@@ -168,7 +168,7 @@
                                         stroke="var(--accent-teal)" stroke-width="4" stroke-dasharray="234.3"
                                         stroke-dashoffset="234.3" stroke-linecap="round"></rect>
                                 </svg>
-                                <img id="lockBtn" src="assets/Locked_Button.png" alt="Lock Toggle"
+                                <img id="lockBtn" src="/static/assets/Locked_Button.png" alt="Lock Toggle"
                                     style="height: 2.5rem; width: 5.5rem; cursor: pointer; object-fit: contain; position: relative; z-index: 2;">
                             </div>
                         </div>
@@ -177,12 +177,12 @@
                     <div class="env-bottom-row">
                         <div class="sliders-section">
                             <div class="slider-row">
-                                <img src="assets/Light_Icon.png" alt="Light" class="slider-icon">
+                                <img src="/static/assets/Light_Icon.png" alt="Light" class="slider-icon">
                                 <input type="range" min="0" max="100" value="70" class="custom-slider light-slider"
                                     id="lightSlider" disabled>
                             </div>
                             <div class="slider-row">
-                                <img src="assets/Fan_Icon.png" alt="Fan" class="slider-icon">
+                                <img src="/static/assets/Fan_Icon.png" alt="Fan" class="slider-icon">
                                 <input type="range" min="0" max="100" value="40" class="custom-slider fan-slider"
                                     id="fanSlider" disabled>
                             </div>
@@ -195,7 +195,7 @@
                                         stroke="var(--accent-teal)" stroke-width="25" stroke-dasharray="78.5"
                                         stroke-dashoffset="78.5"></circle>
                                 </svg>
-                                <img id="autoBtnImg" src="assets/AUTO_Button.png" alt="AUTO"
+                                <img id="autoBtnImg" src="/static/assets/AUTO_Button.png" alt="AUTO"
                                     style="position: relative; z-index: 1;">
                             </button>
                         </div>
@@ -210,7 +210,7 @@
                             <circle class="sos-progress-fill" cx="110" cy="110" r="100" id="sosProgressFill"></circle>
                         </svg>
                         <button class="sos-btn" id="sosBtn">
-                            <img src="assets/SOS_Button.png" alt="SOS">
+                            <img src="/static/assets/SOS_Button.png" alt="SOS">
                         </button>
                     </div>
                     <div class="sos-instruction">PRESS AND HOLD FOR 2 SECONDS</div>
@@ -232,16 +232,16 @@
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">Temperature</span><span class="colon">:</span>
-                            <span class="stat-options">Frosty / Cold / <span class="active">Neutral</span> / Warm /
+                            <span class="stat-options" id="temperatureStatus">Frosty / Cold / <span class="active">Neutral</span> / Warm /
                                 Hot</span>
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">Air Quality</span><span class="colon">:</span>
-                            <span class="stat-options"><span class="active">Normal</span> / Humid / Hazardous</span>
+                            <span class="stat-options" id="airQualityStatus"><span class="active">Normal</span> / Humid / Hazardous</span>
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">Sunlight</span><span class="colon">:</span>
-                            <span class="stat-options">Dark / <span class="active">Dull</span> / Bright</span>
+                            <span class="stat-options" id="sunlightStatus">Dark / <span class="active">Dull</span> / Bright</span>
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">Emergency</span><span class="colon">:</span>
@@ -256,7 +256,7 @@
                     <div class="stats-list">
                         <div class="stat-row">
                             <span class="stat-label">Patient State</span><span class="colon">:</span>
-                            <span class="stat-options"><span class="active">Awake</span> / Resting / Out of bed /
+                            <span class="stat-options" id="patientStateStatus"><span class="active">Awake</span> / Resting / Out of bed /
                                 Distressed</span>
                         </div>
                         <div class="stat-row">
@@ -266,7 +266,7 @@
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">Room State</span><span class="colon">:</span>
-                            <span class="stat-options"><span class="active">Normal</span> / Distress / Hazardous /
+                            <span class="stat-options" id="roomStateStatus"><span class="active">Normal</span> / Distress / Hazardous /
                                 Emergency</span>
                         </div>
                     </div>
@@ -278,7 +278,7 @@
     <div class="orientation-warning">
         <div class="warning-content">
             <div class="warning-logo-wrapper">
-                <img src="assets/MediGuard_Logo.png" alt="MediGuard Logo" class="warning-logo">
+                <img src="/static/assets/MediGuard_Logo.png" alt="MediGuard Logo" class="warning-logo">
             </div>
             <svg class="phone-rotate-icon" viewBox="0 0 100 100" width="120" height="120">
                 <g class="phone-group">
@@ -296,7 +296,7 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="/static/script.js"></script>
 </body>
 
 </html>
