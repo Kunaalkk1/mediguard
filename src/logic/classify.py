@@ -3,26 +3,24 @@ Display buckets:
     Temperature : Frosty / Cold / Neutral / Warm / Hot
     Sunlight    : Dark / Dull / Bright
     Air Quality : Normal / Humid / Hazardous
+
+This module is the single place where raw sensor snapshots and room/patient
+states get turned into classified values -- display buckets, PDDL-facing
+status strings, label maps, and the active safety profile. main.py should
+only call into these functions, never re-derive thresholds itself.
 """
 
-
-GAS_HAZARD_THRESHOLD = 400    # raw 0-1023; at/above this = gas leak        
-TEMP_FIRE_THRESHOLD  = 45     # deg C; at/above this = fire / unsafe heat 
+from .room_state import NORMAL, HAZARDOUS as ROOM_HAZARDOUS, EMERGENCY
+from .patient_state import AWAKE, RESTING, OUT_OF_BED, DISTRESS
+from .thresholds import is_air_hazardous, is_temperature_hazardous
 
 FROSTY, COLD, NEUTRAL, WARM, HOT = "Frosty", "Cold", "Neutral", "Warm", "Hot"
 DARK, DULL, BRIGHT               = "Dark", "Dull", "Bright"
 AIR_NORMAL, HUMID, HAZARDOUS     = "Normal", "Humid", "Hazardous"
 
-
-def is_air_hazardous(gas, threshold=GAS_HAZARD_THRESHOLD):
-    """True if the gas reading indicates a hazardous leak."""
-    return gas >= threshold
-
-
-def is_temperature_hazardous(celsius, fire_threshold=TEMP_FIRE_THRESHOLD):
-    """True if the temperature is high enough to indicate a fire / unsafe heat.
-    (Easily extended to flag dangerous COLD too, if your spec needs it.)"""
-    return celsius >= fire_threshold
+# Lowercase label maps for the PDDL/planner service and dashboard.
+ROOM_MAP = {NORMAL: "normal", ROOM_HAZARDOUS: "hazardous", EMERGENCY: "emergency"}
+PATIENT_MAP = {AWAKE: "awake", RESTING: "resting", OUT_OF_BED: "out_of_bed", DISTRESS: "distress"}
 
 
 def classify_temperature(celsius, frosty_max=12, cold_max=18, neutral_max=24, warm_max=28):
@@ -58,6 +56,67 @@ def classify_all(snapshot):
         "sunlight":    classify_sunlight(snapshot["light"]),
         "air_quality": classify_air_quality(snapshot["gas"], snapshot["humidity"]),
     }
+
+
+def safe_bucket_values(snapshot, buckets, room):
+    """Convert hardware readings to the exact lowercase vocabulary of the PDDL service."""
+    temp = snapshot.get("temperature")
+    humidity = snapshot.get("humidity")
+    light = snapshot.get("light", 0)
+    pulse = snapshot.get("pulse")
+    spo2 = snapshot.get("spo2")
+
+    if room["temp_hazard"]:
+        temperature_status = "unsafe"
+    elif temp is not None and temp >= 28:
+        temperature_status = "hot"
+    else:
+        temperature_status = "comfortable"
+
+    return {
+        "temperature_status": temperature_status,
+        "humidity_status": "high" if humidity is not None and humidity >= 65 else "comfortable",
+        "air_quality_status": "unsafe" if room["gas_hazard"] else "safe",
+        "light_level": "dark" if light < 300 else "normal",
+        "pressure_on_bed": bool(snapshot.get("on_bed")),
+        "pir_motion_last_15_min": bool(snapshot.get("motion")),
+        "spo2_status": "low" if spo2 is not None and spo2 < 90 else "normal",
+        "pulse_status": "abnormal" if pulse is not None and not (50 <= pulse <= 120) else "normal",
+        "sos_pressed": bool(snapshot.get("sos")),
+        "display_temperature_bucket": buckets["temperature"],
+        "display_air_quality_bucket": buckets["air_quality"],
+        "display_sunlight_bucket": buckets["sunlight"],
+    }
+
+def active_safety_profile(room, patient_state):
+    """Classify the current room/patient combination into a safety profile name."""
+    if room["label"] == EMERGENCY:
+        return "emergency"
+    if room["label"] == ROOM_HAZARDOUS:
+        return "hazardous"
+    if patient_state == DISTRESS:
+        return "distress"
+    return None
+
+
+def build_planner_state(room_id, snapshot, room, patient_state, out_of_bed_minutes):
+    """Assemble the full PDDL-facing state dict from raw snapshot + room/patient state.
+    This is the one entry point main.py needs for a fully classified snapshot."""
+    from datetime import datetime
+
+    buckets = classify_all(snapshot)
+    return {
+        "schema_version": 1,
+        "room_id": room_id,
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "room_state": ROOM_MAP[room["label"]],
+        "patient_state": PATIENT_MAP[patient_state],
+        "out_of_bed_minutes": out_of_bed_minutes,
+        "sensor_summary": safe_bucket_values(snapshot, buckets, room),
+        # These raw values are optional for logs/dashboard; the PDDL service
+        # uses only the symbolic fields above.
+        "raw_snapshot": snapshot,
+    }, buckets
 
 
 if __name__ == "__main__":

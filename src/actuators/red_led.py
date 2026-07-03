@@ -6,12 +6,7 @@ flips itself each time BLINK_INTERVAL has elapsed, and when SOS is released
 it goes off. The clock does the timing, not a sleep.
 """
 
-import os, sys
-try:
-    from grove_base import ON_PI, grovepi
-except ImportError:
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "sensors"))
-    from grove_base import ON_PI, grovepi
+from sensors.grove_base import ON_PI, grovepi
 
 RED_LED_PORT   = 3      # GrovePi digital port D3
 BLINK_INTERVAL = 0.5     # seconds between flips (0.5s on, 0.5s off)

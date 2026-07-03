@@ -1,8 +1,8 @@
 import time
 
-from grove_sensors import read_light, read_gas, read_motion, read_sos, read_pressure
-from dht_reader import read_temperature_humidity
-from max30102_reader import read_pulse_spo2
+from .grove_sensors import read_light, read_gas, read_motion, read_sos, read_pressure
+from .dht_reader import read_temperature_humidity
+from .max30102_reader import read_pulse_spo2
 
 
 def read_all():

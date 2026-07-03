@@ -12,9 +12,7 @@ the relay's screw terminals (12V+ -> COM, NO -> solenoid+, solenoid- -> 12V-).
 Keep a flyback diode across the solenoid coil.
 """
 
-import os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "sensors"))
-from grove_base import ON_PI, grovepi
+from sensors.grove_base import ON_PI, grovepi
 
 RELAY_PORT         = 6      # GrovePi digital port D6
 RELAY_ACTIVE_HIGH  = True    # Grove relays are active-HIGH
@@ -62,11 +60,4 @@ if __name__ == "__main__":
     print("Testing lock.py (Grove relay on D6)\n")
     print(f"  config: RELAY_ACTIVE_HIGH={RELAY_ACTIVE_HIGH}, "
           f"ENERGIZE_TO_UNLOCK={ENERGIZE_TO_UNLOCK}\n")
-    print("setup() -> safe default:")
-    setup()
-    print(f"  state = {LOCKED}\n")
-    print("unlock():")
-    print(f"  state = {unlock()}\n")
-    print("lock():")
-    print(f"  state = {lock()}")
-    print("\nDone.")
+    lock()

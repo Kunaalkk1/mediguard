@@ -1,5 +1,5 @@
 import random
-from grove_base import ON_PI, grovepi
+from .grove_base import ON_PI, grovepi
 
 LIGHT_PORT    = 0     # analog A0  -- Grove light sensor
 PRESSURE_PORT = 1     # analog A1  -- RP-S40-ST FSR (force/pressure)

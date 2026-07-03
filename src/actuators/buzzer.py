@@ -5,9 +5,7 @@ a HIGH sounds it, a LOW silences it. No PWM.
 
 """
 
-import os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "sensors"))
-from grove_base import ON_PI, grovepi
+from sensors.grove_base import ON_PI, grovepi
 
 BUZZER_PORT = 5      # GrovePi digital port D5
 
@@ -47,7 +45,7 @@ if __name__ == "__main__":
     print("Testing buzzer.py (Grove port D5)\n")
     setup()
     print("Buzzer follows the SOS button:")
-    for pressed in [False, True, True, False]:
-        state = set_from_sos(pressed)
-        print(f"  SOS pressed = {pressed!s:5}  ->  buzzer {state}")
+    while True:
+        state = set_from_sos(True)
+        print(f"  SOS pressed ->  buzzer {state}")
     print("\nDone.")

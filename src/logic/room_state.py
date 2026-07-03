@@ -9,7 +9,7 @@ Per the spec:
   - Normal    : neither -- the room itself is fine.
 """
 
-from classify import is_air_hazardous, is_temperature_hazardous
+from .thresholds import is_air_hazardous, is_temperature_hazardous
 
 NORMAL    = "Normal"
 HAZARDOUS = "Hazardous"
