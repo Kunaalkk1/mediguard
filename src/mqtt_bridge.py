@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from paho.mqtt import client as mqtt
 
 from utils.i2c_semaphore import i2c_lock
+import runtime_flags
 import shared_state
 import actuators.light as light
 import actuators.fan as fan
@@ -42,6 +43,14 @@ class MediGuardMqttBridge:
         self._buzzer_mode = "off"       # off / low / high
         self._buzzer_is_on = False
         self._red_led_mode = "off"      # off / blink
+
+        # Last light/fan level actually driven to hardware (0-100), for change
+        # detection so re-asserting the same value every brain cycle is a no-op.
+        self._light_percent = None
+        self._fan_percent = None
+        # Latest light/fan the planner asked for, re-applied when leaving manual.
+        self._auto_light = 0
+        self._auto_fan = 0
 
         # Bridge belief after it has received and applied a command.
         # This confirms command reception and interpretation. It is not sensor
@@ -132,6 +141,25 @@ class MediGuardMqttBridge:
         self._set_red_led_mode("blink")
 
     # ------------------------------------------------------------------
+    # Manual / auto light + fan control (precedence: safety > manual > auto)
+    # ------------------------------------------------------------------
+    @property
+    def auto_light(self) -> int:
+        return self._auto_light
+
+    @property
+    def auto_fan(self) -> int:
+        return self._auto_fan
+
+    def set_light_fan(self, light_percent: int, fan_percent: int):
+        """Drive light+fan to the given 0-100 levels (change-detected, so it is
+        safe to call every cycle). Ignored while a safety profile is active."""
+        if self.safety_override_active:
+            return
+        self._apply_light(light_percent)
+        self._apply_fan(fan_percent)
+
+    # ------------------------------------------------------------------
     # MQTT callbacks and command decoding: AI planner -> hardware
     # ------------------------------------------------------------------
     def _on_connect(self, client, userdata, flags, reason_code, properties):
@@ -161,10 +189,17 @@ class MediGuardMqttBridge:
             return
 
         try:
+            # Light/fan follow the planner only in auto mode. In manual mode the
+            # requested level is remembered (so it can be restored when auto
+            # resumes) but not driven to hardware.
             if command == "light":
-                self._apply_light(self._parse_percent(value, {0, 25, 50, 100}, "light"))
+                self._auto_light = self._parse_percent(value, {0, 25, 50, 100}, "light")
+                if not runtime_flags.manual_mode.get():
+                    self._apply_light(self._auto_light)
             elif command == "fan":
-                self._apply_fan(self._parse_percent(value, {0, 25, 50, 100}, "fan"))
+                self._auto_fan = self._parse_percent(value, {0, 25, 50, 100}, "fan")
+                if not runtime_flags.manual_mode.get():
+                    self._apply_fan(self._auto_fan)
             elif command == "door":
                 self._apply_door(value)
             elif command == "buzzer":
@@ -191,15 +226,18 @@ class MediGuardMqttBridge:
     # Existing driver calls + closed-state logging
     # ------------------------------------------------------------------
     def _apply_light(self, percent: int):
+        # Accept any 0-100 level (planner uses 0/50/100; manual any value).
+        percent = max(0, min(100, int(percent)))
+        if percent == self._light_percent:
+            return
+        self._light_percent = percent
+
         if percent == 0:
-            closed_state = "OFF = light-not-on + light-not-dim"
-            label = "off"
-        elif percent in {25, 50}:
-            closed_state = "DIM = light-on + light-dim"
-            label = "dim"
+            label, closed_state = "off", "OFF = light-not-on + light-not-dim"
+        elif percent <= 50:
+            label, closed_state = "dim", "DIM = light-on + light-dim"
         else:
-            closed_state = "BRIGHT = light-on + light-not-dim"
-            label = "bright"
+            label, closed_state = "bright", "BRIGHT = light-on + light-not-dim"
 
         light.set_brightness(percent)
         with self._command_lock:
@@ -208,13 +246,19 @@ class MediGuardMqttBridge:
         self._publish_actuator_state()
 
     def _apply_fan(self, percent: int):
-        fan_states = {
-            0: ("off", "OFF = fan-not-on + fan-not-medium + fan-not-high"),
-            25: ("low", "LOW = fan-on + fan-not-medium + fan-not-high"),
-            50: ("medium", "MEDIUM = fan-on + fan-medium + fan-not-high"),
-            100: ("high", "HIGH = fan-on + fan-not-medium + fan-high"),
-        }
-        label, closed_state = fan_states[percent]
+        percent = max(0, min(100, int(percent)))
+        if percent == self._fan_percent:
+            return
+        self._fan_percent = percent
+
+        if percent == 0:
+            label, closed_state = "off", "OFF = fan-not-on + fan-not-medium + fan-not-high"
+        elif percent <= 33:
+            label, closed_state = "low", "LOW = fan-on + fan-not-medium + fan-not-high"
+        elif percent <= 66:
+            label, closed_state = "medium", "MEDIUM = fan-on + fan-medium + fan-not-high"
+        else:
+            label, closed_state = "high", "HIGH = fan-on + fan-not-medium + fan-high"
 
         fan.set_speed(percent)
         with self._command_lock:

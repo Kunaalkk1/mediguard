@@ -43,6 +43,37 @@ class Toggle:
             return self._value
 
 
+class Level:
+    """A thread-safe integer clamped to 0-100 (a manual light/fan setpoint)."""
+
+    def __init__(self, value: int = 0):
+        self._value = self._clamp(value)
+        self._lock = threading.Lock()
+
+    @staticmethod
+    def _clamp(value) -> int:
+        try:
+            return max(0, min(100, int(value)))
+        except (TypeError, ValueError):
+            return 0
+
+    def set(self, value) -> int:
+        with self._lock:
+            self._value = self._clamp(value)
+            return self._value
+
+    def get(self) -> int:
+        with self._lock:
+            return self._value
+
+
 # The two shared switches used across the sensor, brain, and web threads.
 sos_emergency = Toggle()
 vitals_emergency = Toggle()
+
+# Manual/auto control of light + fan. In auto (default) the AI planner drives
+# them; in manual the dashboard sliders set these levels and override the
+# planner. Emergencies still take precedence over both.
+manual_mode = Toggle()          # False = auto (AI), True = manual (dashboard)
+manual_light = Level(0)
+manual_fan = Level(0)

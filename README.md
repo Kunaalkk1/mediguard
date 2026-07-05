@@ -34,6 +34,21 @@ The system spans two machines communicating **indirectly over MQTT**:
   cannot be produced safely on the bench.
 * **Actuators (5):** light (PWM), fan (PWM), door lock (relay), buzzer, red alert LED.
 
+Light brightness and fan speed use a **0–100 scale everywhere** (GUI, PDDL,
+MQTT). The drivers map that scale into a **0–40 % PWM duty** ceiling calibrated
+for the hardware (`HW_MAX_DUTY` in `actuators/light.py` and `actuators/fan.py`),
+so 100 = 40 % duty.
+
+## Manual vs. auto control
+
+The **AUTO** button on the dashboard switches light + fan between:
+
+* **Auto** (default, button glowing): the AI planner drives light and fan.
+* **Manual**: the light/fan sliders become live and override the planner.
+
+Precedence is **safety > manual > auto** — an active emergency always drives the
+actuators regardless of mode, and manual setpoints resume once it clears.
+
 ## Emergencies (how to demonstrate each)
 
 | Emergency | Trigger | Result |

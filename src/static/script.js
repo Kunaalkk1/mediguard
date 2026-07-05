@@ -94,6 +94,12 @@ const lightSlider = document.getElementById('lightSlider');
 const fanSlider = document.getElementById('fanSlider');
 const emergencyOverlay = document.getElementById('emergencyOverlay');
 const medEmergencyBtn = document.getElementById('medEmergencyBtn');
+const autoBtn = document.getElementById('autoBtn');
+
+// Timestamps of the last user slider drag, so the 1 s /data refresh does not
+// yank a slider out from under a finger that is currently adjusting it.
+const userAdjust = { light: 0, fan: 0 };
+let manualMode = false;
 
 function renderVitals(data) {
     if (heartRateEl) heartRateEl.textContent = data.heart_rate != null ? data.heart_rate : '--';
@@ -102,20 +108,35 @@ function renderVitals(data) {
     if (humidityValueEl && data.humidity != null) humidityValueEl.textContent = `${Math.round(data.humidity)}%`;
 }
 
-function renderActuators(act) {
-    // The env-controls card mirrors the planner-driven actuator state (display
-    // only): the door icon and the light/fan slider positions.
+// Env-controls card: door icon + light/fan sliders. In AUTO the sliders mirror
+// the planner-driven state (disabled); in MANUAL they are the live control.
+function renderControls(data) {
+    const act = data.actuator_state || {};
+    const mode = data.mode || { manual: false, light: 0, fan: 0 };
+    const emergencyActive = !!(data.emergency && data.emergency.active);
+    manualMode = !!mode.manual;
+
+    // Sliders are live only in manual mode with no emergency (safety wins).
+    const controllable = manualMode && !emergencyActive;
+    if (autoBtn) autoBtn.classList.toggle('active', !manualMode);  // glow = AUTO
+    if (lightSlider) lightSlider.disabled = !controllable;
+    if (fanSlider) fanSlider.disabled = !controllable;
+
     if (lockBtn) {
         lockBtn.src = act.door === 'unlocked'
             ? '/static/assets/Unlocked_Button.png'
             : '/static/assets/Locked_Button.png';
     }
-    if (lightSlider) {
-        lightSlider.value = LIGHT_PCT[act.light] != null ? LIGHT_PCT[act.light] : 0;
+
+    const now = Date.now();
+    if (lightSlider && now - userAdjust.light > 1200) {
+        const v = manualMode ? mode.light : (LIGHT_PCT[act.light] != null ? LIGHT_PCT[act.light] : 0);
+        lightSlider.value = v;
         updateSliderBackground(lightSlider);
     }
-    if (fanSlider) {
-        fanSlider.value = FAN_PCT[act.fan] != null ? FAN_PCT[act.fan] : 0;
+    if (fanSlider && now - userAdjust.fan > 1200) {
+        const v = manualMode ? mode.fan : (FAN_PCT[act.fan] != null ? FAN_PCT[act.fan] : 0);
+        fanSlider.value = v;
         updateSliderBackground(fanSlider);
     }
 }
@@ -264,7 +285,7 @@ async function refresh() {
         if (!res.ok) return;
         const data = await res.json();
         renderVitals(data);
-        renderActuators(data.actuator_state || {});
+        renderControls(data);
         renderFacts(data);
         renderEmergency(data);
         renderMedButton(data.toggles);
@@ -276,7 +297,51 @@ async function refresh() {
 setInterval(refresh, 1000);
 refresh();
 
-// --- Medical emergency toggle (the only interactive control) ----------------
+// --- Manual / auto control interactions -------------------------------------
+const lastPost = { light: 0, fan: 0 };
+
+function postManual(kind, value, force) {
+    // Throttle mid-drag traffic; `force` (on release) always sends the final value.
+    const now = Date.now();
+    if (!force && now - lastPost[kind] < 120) return;
+    lastPost[kind] = now;
+    fetch(`/api/manual/${kind}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: Number(value) }),
+    }).catch(err => console.log('manual', kind, 'failed:', err));
+}
+
+function wireSlider(slider, kind) {
+    if (!slider) return;
+    slider.addEventListener('input', e => {
+        userAdjust[kind] = Date.now();
+        updateSliderBackground(e.target);
+        if (manualMode) postManual(kind, e.target.value, false);
+    });
+    slider.addEventListener('change', e => {
+        userAdjust[kind] = Date.now();
+        if (manualMode) postManual(kind, e.target.value, true);
+    });
+}
+wireSlider(lightSlider, 'light');
+wireSlider(fanSlider, 'fan');
+
+if (autoBtn) {
+    autoBtn.addEventListener('click', async () => {
+        try {
+            const res = await fetch('/api/mode/toggle', { method: 'POST' });
+            const body = await res.json();
+            manualMode = !!body.manual_mode;
+        } catch (err) {
+            console.log('mode toggle failed:', err);
+        } finally {
+            refresh();
+        }
+    });
+}
+
+// --- Medical emergency toggle -----------------------------------------------
 if (medEmergencyBtn) {
     medEmergencyBtn.addEventListener('click', async () => {
         medEmergencyBtn.disabled = true;

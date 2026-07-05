@@ -34,6 +34,7 @@ from logic.patient_state import PatientStateTracker, DISTRESS
 from utils.i2c_semaphore import i2c_lock
 import runtime_flags
 import shared_state
+import web_server
 from web_server import run_server
 import mqtt_bridge
 
@@ -196,6 +197,14 @@ def brain_worker():
             bridge.apply_safety_profile(safety_profile)
             bridge.publish_state(planner_state)
 
+            # Light + fan precedence: safety > manual > auto. During a safety
+            # profile the bridge ignores this (safety already drives them).
+            if runtime_flags.manual_mode.get():
+                bridge.set_light_fan(runtime_flags.manual_light.get(),
+                                     runtime_flags.manual_fan.get())
+            else:
+                bridge.set_light_fan(bridge.auto_light, bridge.auto_fan)
+
             shared_state.merge({
                 "heart_rate": snap.get("pulse"),
                 "spo2": snap.get("spo2"),
@@ -236,6 +245,9 @@ if __name__ == "__main__":
         # Hardware driver / broker init failing must not stop the dashboard or
         # the local safety pipeline from coming up.
         print(f"[startup] MQTT bridge init failed (running degraded): {exc}")
+
+    # Let the dashboard's manual-control endpoints drive this bridge directly.
+    web_server.attach_bridge(bridge)
 
     workers = {
         "SensorThread": sensor_worker,

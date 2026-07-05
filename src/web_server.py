@@ -7,12 +7,28 @@ Started as a thread by main.py. No brain logic lives here.
 
 import os
 
-from flask import Flask, jsonify, render_template, send_from_directory
+from flask import Flask, jsonify, render_template, request, send_from_directory
 
 import runtime_flags
 from shared_state import snapshot
 
 app = Flask(__name__)
+
+# Set by main.py so the manual-control endpoints can drive the actuators
+# immediately (the brain loop also re-asserts the same state every cycle).
+_bridge = None
+
+
+def attach_bridge(bridge):
+    global _bridge
+    _bridge = bridge
+
+
+def _apply_light_fan():
+    """Push the current manual setpoints to hardware if manual mode is active."""
+    if _bridge is not None and runtime_flags.manual_mode.get():
+        _bridge.set_light_fan(runtime_flags.manual_light.get(),
+                              runtime_flags.manual_fan.get())
 
 # Bind to all interfaces so the dashboard is reachable both locally on the Pi
 # (http://localhost:7801) and from a phone joined to the Pi's hotspot
@@ -34,13 +50,53 @@ def service_worker():
 
 @app.route("/data")
 def data():
-    """Latest environment + plan state, plus the manual toggle states."""
+    """Latest environment + plan state, plus toggle and manual-mode states."""
     state = snapshot()
     state["toggles"] = {
         "sos_emergency": runtime_flags.sos_emergency.get(),
         "vitals_emergency": runtime_flags.vitals_emergency.get(),
     }
+    state["mode"] = {
+        "manual": runtime_flags.manual_mode.get(),
+        "light": runtime_flags.manual_light.get(),
+        "fan": runtime_flags.manual_fan.get(),
+    }
     return jsonify(state)
+
+
+def _requested_level():
+    """Read a 0-100 level from a JSON body {"value": n} (robust to bad input)."""
+    body = request.get_json(silent=True) or {}
+    return body.get("value", 0)
+
+
+@app.route("/api/mode/toggle", methods=["POST"])
+def toggle_mode():
+    """Switch between AI (auto) and manual control of light + fan."""
+    manual = runtime_flags.manual_mode.toggle()
+    if _bridge is not None:
+        if manual:
+            _bridge.set_light_fan(runtime_flags.manual_light.get(),
+                                  runtime_flags.manual_fan.get())
+        else:
+            # Restore the planner's last requested levels.
+            _bridge.set_light_fan(_bridge.auto_light, _bridge.auto_fan)
+    print(f"[web] control mode -> {'MANUAL' if manual else 'AUTO'}")
+    return jsonify({"manual_mode": manual})
+
+
+@app.route("/api/manual/light", methods=["POST"])
+def manual_light():
+    value = runtime_flags.manual_light.set(_requested_level())
+    _apply_light_fan()
+    return jsonify({"light": value})
+
+
+@app.route("/api/manual/fan", methods=["POST"])
+def manual_fan():
+    value = runtime_flags.manual_fan.set(_requested_level())
+    _apply_light_fan()
+    return jsonify({"fan": value})
 
 
 @app.route("/api/emergency/vitals/toggle", methods=["POST"])

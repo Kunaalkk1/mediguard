@@ -16,6 +16,11 @@ from .actuator_base import setup_output, write_pwm
 
 LIGHT_PWM_PIN = 12    # GPIO12 -> L298N ENB (light)   [hardware pwm0]
 
+# The system talks in a 0-100 brightness scale everywhere (GUI, PDDL, MQTT),
+# but the hardware is calibrated so 100 brightness = 40% PWM duty. So the
+# semantic 0-100 is mapped into a 0-HW_MAX_DUTY duty range before driving PWM.
+HW_MAX_DUTY = 40      # percent duty at brightness 100
+
 
 def setup():
     """Call once at startup."""
@@ -27,9 +32,10 @@ def setup():
 
 
 def set_brightness(percent):
-    """Set light brightness from 0 to 100 percent."""
+    """Set light brightness on the 0-100 scale (mapped to 0-HW_MAX_DUTY% duty)."""
     percent = max(0, min(100, percent))
-    pwm = round(percent / 100 * 255)              # 0-100%  ->  0-255 PWM
+    duty_percent = percent * HW_MAX_DUTY / 100    # 0-100 brightness -> 0-40% duty
+    pwm = round(duty_percent / 100 * 255)         # 0-40% duty       -> 0-255 PWM
     write_pwm(LIGHT_PWM_PIN, pwm)
     return pwm
 

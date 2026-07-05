@@ -15,6 +15,11 @@ from .actuator_base import setup_output, write_pwm
 FAN_PWM_PIN = 13      # GPIO13 -> L298N ENA (fan)   [hardware pwm1]
 MIN_START   = 30      # below this PWM a small fan may stall; tune on the bench
 
+# The system talks in a 0-100 speed scale everywhere (GUI, PDDL, MQTT), but the
+# hardware is calibrated so 100 speed = 40% PWM duty. So the semantic 0-100 is
+# mapped into a 0-HW_MAX_DUTY duty range before driving PWM.
+HW_MAX_DUTY = 40      # percent duty at speed 100
+
 
 def setup():
     """Call once at startup."""
@@ -22,13 +27,14 @@ def setup():
 
 
 def set_speed(percent):
-    """Set fan speed from 0 to 100 percent."""
+    """Set fan speed on the 0-100 scale (mapped to 0-HW_MAX_DUTY% duty)."""
     percent = max(0, min(100, percent))
     if percent == 0:
         pwm = 0
     else:
-        pwm = round(percent / 100 * 255)
-        pwm = max(pwm, MIN_START)                 # don't let it stall
+        duty_percent = percent * HW_MAX_DUTY / 100   # 0-100 speed -> 0-40% duty
+        pwm = round(duty_percent / 100 * 255)        # 0-40% duty  -> 0-255 PWM
+        pwm = max(pwm, MIN_START)                    # don't let it stall
     write_pwm(FAN_PWM_PIN, pwm)
     return pwm
 
