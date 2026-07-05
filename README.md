@@ -105,27 +105,38 @@ sudo systemctl enable --now mosquitto
 # 3. Use real sensors/actuators (skip to run in simulation)
 #    edit src/main.py  ->  USE_SIMULATOR = False
 
-# 4. Run the two processes (separate terminals, tmux, or systemd units)
+# 4. Run the two processes (separate terminals, tmux, or systemd units).
+#    Use sudo so main.py can start the Wi-Fi hotspot (see below).
 python3 src/AI_pddl_planner_service.py     # terminal A
-python3 src/main.py                         # terminal B
+sudo -E python3 src/main.py                 # terminal B  (-E keeps the venv/env)
 ```
 
 The dashboard is now live on the Pi at **http://localhost:7801** (and on
 `http://<pi-ip>:7801` for any device on the same network).
 
-### Create a Wi-Fi hotspot and open the GUI from your phone
+### Wi-Fi hotspot (started automatically by main.py)
 
-Raspberry Pi OS (Bookworm) uses NetworkManager, so one command starts an access
-point on the built-in Wi-Fi:
+With `MEDIGUARD_HOTSPOT=1` in `.env` (the default), `main.py` brings up the
+access point itself at launch via NetworkManager — no manual steps. It needs
+root, so run it with `sudo`. Configure it in `.env`:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `MEDIGUARD_HOTSPOT` | `1` | `1` = start an AP at launch; `0` = don't |
+| `MEDIGUARD_HOTSPOT_SSID` | `MediGuard` | network name |
+| `MEDIGUARD_HOTSPOT_PASSWORD` | `mediguard123` | WPA password |
+| `MEDIGUARD_HOTSPOT_IFACE` | `wlan0` | wireless interface |
+
+On startup the log prints the AP's address (NetworkManager uses `10.42.0.1`).
+It is best-effort: on a non-Pi machine, without `nmcli`, or without root it just
+logs a warning and continues. To do it by hand instead:
 
 ```bash
 sudo nmcli device wifi hotspot ssid MediGuard password "mediguard123" ifname wlan0
-
-# Show the Pi's hotspot IP (NetworkManager uses 10.42.0.1 by default)
-nmcli -g IP4.ADDRESS device show wlan0
+nmcli -g IP4.ADDRESS device show wlan0     # shows the AP IP (10.42.0.1)
 ```
 
-To make the hotspot start automatically on every boot instead:
+To make the hotspot start automatically on every boot via NetworkManager itself:
 
 ```bash
 sudo nmcli connection add type wifi ifname wlan0 con-name MediGuardAP autoconnect yes ssid MediGuard

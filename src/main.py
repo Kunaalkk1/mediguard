@@ -21,6 +21,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 for _sub in ("sensors", "logic", "utils", "actuators"):
     sys.path.insert(0, os.path.join(HERE, _sub))
 
+# Load .env before importing modules that read config at import time (web_server
+# reads the dashboard host/port, hotspot reads the AP settings).
+from dotenv import load_dotenv
+load_dotenv()
+
 USE_SIMULATOR = True
 
 if USE_SIMULATOR:
@@ -37,6 +42,7 @@ import shared_state
 import web_server
 from web_server import run_server
 import mqtt_bridge
+import hotspot
 
 # Vital-sign values injected when the dashboard's medical-emergency toggle is
 # on. They sit outside the safe pulse/SpO2 ranges so the patient tracker
@@ -238,6 +244,9 @@ if __name__ == "__main__":
     print(f"Starting MediGuard with MQTT/PDDL integration (USE_SIMULATOR={USE_SIMULATOR})")
     print("Dashboard will be served on http://localhost:7801")
     print("Running... press Ctrl+C to stop.\n")
+
+    # Bring up the Wi-Fi hotspot first (if enabled) so a phone can join early.
+    hotspot.start_hotspot()
 
     try:
         bridge.start()
