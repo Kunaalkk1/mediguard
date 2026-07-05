@@ -25,10 +25,11 @@ ROOM_ID = os.getenv("ROOM_ID", "room101")
 # "online" uses Planning.Domains. "local" uses Fast Downward if you install it later.
 PLANNER_MODE = os.getenv("PLANNER_MODE", "online").lower()
 
-# Planning.Domains endpoint. If this service changes, test your PDDL in the browser first.
+# Planning.Domains package endpoint (asynchronous submit + poll). If this
+# service changes, test your PDDL in the browser first.
 PLANNING_SERVICE_URL = os.getenv(
     "PLANNING_SERVICE_URL",
-    "https://solver.planning.domains/solve"
+    "https://solver.planning.domains:5001/package/lama-first/solve"
 )
 
 # Local Fast Downward command example:
@@ -349,20 +350,13 @@ def run_online_planner(domain_text: str, problem_text: str) -> list[str]:
         "problem": problem_text
     }
 
-    print("\n==============================")
-    print("SUBMITTING TO ONLINE PDDL SOLVER")
-    print("==============================")
-    print("URL:", PLANNING_SERVICE_URL)
+    print(f"[planner] submitting problem to {PLANNING_SERVICE_URL}")
 
     submit_response = requests.post(
         PLANNING_SERVICE_URL,
         json=payload,
         timeout=30
     )
-
-    print("Submit status code:", submit_response.status_code)
-    print("Submit response:")
-    print(submit_response.text[:2000])
 
     if not submit_response.ok:
         raise RuntimeError(
@@ -393,9 +387,7 @@ def run_online_planner(domain_text: str, problem_text: str) -> list[str]:
     base_url = PLANNING_SERVICE_URL.split("/package/")[0]
 
     result_url = urljoin(base_url, result_path)
-
-    print("\nPolling result URL:")
-    print(result_url)
+    print(f"[planner] polling {result_url}")
 
     for attempt in range(60):
         time.sleep(0.5)
@@ -406,25 +398,14 @@ def run_online_planner(domain_text: str, problem_text: str) -> list[str]:
             timeout=30
         )
 
-        print(f"Poll attempt {attempt + 1}, status:", result_response.status_code)
-
         if not result_response.ok:
-            print("Poll response failed:")
-            print(result_response.text[:1000])
+            print(f"[planner] poll {attempt + 1} failed: {result_response.status_code}")
             continue
 
         result_data = result_response.json()
 
-        status = result_data.get("status", "")
-
-        if status == "PENDING":
-            print("Planner still running...")
+        if result_data.get("status", "") == "PENDING":
             continue
-
-        print("\n==============================")
-        print("ONLINE PDDL SOLVER FINAL RESPONSE")
-        print("==============================")
-        print(json.dumps(result_data, indent=2)[:3000])
 
         plan_lines = extract_plan_lines(result_data)
 
@@ -433,7 +414,7 @@ def run_online_planner(domain_text: str, problem_text: str) -> list[str]:
 
         raise RuntimeError(
             "Planner finished, but no plan actions were found. "
-            f"Final response: {json.dumps(result_data, indent=2)[:3000]}"
+            f"Final response: {json.dumps(result_data, indent=2)[:2000]}"
         )
 
     raise RuntimeError("Online planner timed out after polling for 30 seconds.")
@@ -497,6 +478,9 @@ def extract_plan_lines(data: Any) -> list[str]:
     Return actions from one valid planner solution only.
     Do not combine actions from multiple returned plans.
     """
+
+    if not isinstance(data, dict):
+        return []
 
     for plan_wrapper in data.get("plans", []):
         result = plan_wrapper.get("result", {})
@@ -749,10 +733,8 @@ def publish_plan_to_dashboard(
         encoding="utf-8"
     )
 
-    print("\n==============================")
-    print("PDDL PLAN PUBLISHED TO DASHBOARD")
-    print("==============================")
-    print(json.dumps(dashboard_plan, indent=2))
+    print(f"[planner] published plan to dashboard: goal={goal_name!r} "
+          f"status={status} actions={len(plan_lines)}")
 
 
 # ============================================================
@@ -764,24 +746,23 @@ def on_message(client: mqtt.Client, userdata, msg):
 
     try:
         state = json.loads(msg.payload.decode("utf-8"))
-    except json.JSONDecodeError:
+    except (ValueError, UnicodeDecodeError):
         print("Received invalid JSON; ignoring message.")
         return
 
-    print("\n==============================")
-    print("STATE RECEIVED BY PDDL PLANNER")
-    print("==============================")
-    print(json.dumps(state, indent=2))
+    if not isinstance(state, dict):
+        print("State payload was not a JSON object; ignoring message.")
+        return
 
     room_id = state.get("room_id", ROOM_ID)
     current_signature = make_goal_signature(state)
 
     if current_signature == previous_goal_signature:
-        print("No goal-relevant symbolic state change. No replanning needed.")
         return
 
     previous_goal_signature = current_signature
-    print("State/goal changed. Generating new PDDL problem and replanning.")
+    print(f"[planner] state changed -> replanning "
+          f"(room={state.get('room_state')}, patient={state.get('patient_state')})")
 
     problem_text, goal_name, priority = generate_problem_pddl(state)
 

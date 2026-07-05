@@ -56,15 +56,21 @@
                     <div class="monitor-data">
                         <div class="data-row">
                             <span class="data-label">Heart Rate :</span>
-                            <span class="data-value" id="heartRate">79</span>
+                            <span class="data-value" id="heartRate">--</span>
                             <span class="data-unit">BPM</span>
                         </div>
                         <div class="data-row">
                             <span class="data-label">SPO2 :</span>
-                            <span class="data-value" id="spo2">98.2</span>
+                            <span class="data-value" id="spo2">--</span>
                             <span class="data-unit">%</span>
                         </div>
                     </div>
+                    <!-- Stand-in for the removed physical SpO2 sensor: a real
+                         distress reading can't be produced safely on the bench,
+                         so staff can inject one from here for the demo. -->
+                    <button class="med-emergency-btn" id="medEmergencyBtn">
+                        Simulate Medical Emergency
+                    </button>
                 </div>
 
                 <div class="card assigned-practitioners">
@@ -151,26 +157,15 @@
                     <div class="env-top-row">
                         <div class="env-stat">
                             <img src="/static/assets/Temperature_Icon.png" alt="Temp" class="env-icon">
-                            <span class="env-value" id="tempValue">23°C</span>
+                            <span class="env-value" id="tempValue">--°C</span>
                         </div>
                         <div class="env-stat">
                             <img src="/static/assets/Humidity_Icon.png" alt="Humidity" class="env-icon">
-                            <span class="env-value" id="humidityValue">17%</span>
+                            <span class="env-value" id="humidityValue">--%</span>
                         </div>
                         <div class="door-lock">
-                            <div class="lock-toggle" id="lockToggle"
-                                style="position: relative; background: transparent; padding: 0; width: 6rem; height: 3rem; display: flex; align-items: center; justify-content: center;">
-                                <svg class="lock-progress" width="100%" height="100%" viewBox="0 0 96 48"
-                                    style="position: absolute; top: 0; left: 0; pointer-events: none;">
-                                    <rect x="2" y="2" width="92" height="44" rx="22" fill="none"
-                                        stroke="rgba(60, 167, 179, 0.2)" stroke-width="4"></rect>
-                                    <rect id="lockProgressFill" x="2" y="2" width="92" height="44" rx="22" fill="none"
-                                        stroke="var(--accent-teal)" stroke-width="4" stroke-dasharray="234.3"
-                                        stroke-dashoffset="234.3" stroke-linecap="round"></rect>
-                                </svg>
-                                <img id="lockBtn" src="/static/assets/Locked_Button.png" alt="Lock Toggle"
-                                    style="height: 2.5rem; width: 5.5rem; cursor: pointer; object-fit: contain; position: relative; z-index: 2;">
-                            </div>
+                            <img id="lockBtn" src="/static/assets/Locked_Button.png" alt="Door state"
+                                style="height: 2.5rem; width: 5.5rem; object-fit: contain;">
                         </div>
                     </div>
 
@@ -178,97 +173,57 @@
                         <div class="sliders-section">
                             <div class="slider-row">
                                 <img src="/static/assets/Light_Icon.png" alt="Light" class="slider-icon">
-                                <input type="range" min="0" max="100" value="70" class="custom-slider light-slider"
+                                <input type="range" min="0" max="100" value="0" class="custom-slider light-slider"
                                     id="lightSlider" disabled>
                             </div>
                             <div class="slider-row">
                                 <img src="/static/assets/Fan_Icon.png" alt="Fan" class="slider-icon">
-                                <input type="range" min="0" max="100" value="40" class="custom-slider fan-slider"
+                                <input type="range" min="0" max="100" value="0" class="custom-slider fan-slider"
                                     id="fanSlider" disabled>
                             </div>
                         </div>
                         <div class="auto-btn-section">
-                            <button class="auto-btn active" id="autoBtn" style="position: relative;">
-                                <svg class="auto-progress" width="100%" height="100%" viewBox="0 0 100 100"
-                                    style="position: absolute; top: 0; left: 0; pointer-events: none; transform: rotate(-90deg); z-index: 0; border-radius: 50%; overflow: hidden;">
-                                    <circle id="autoProgressFill" cx="50" cy="50" r="12.5" fill="none"
-                                        stroke="var(--accent-teal)" stroke-width="25" stroke-dasharray="78.5"
-                                        stroke-dashoffset="78.5"></circle>
-                                </svg>
-                                <img id="autoBtnImg" src="/static/assets/AUTO_Button.png" alt="AUTO"
-                                    style="position: relative; z-index: 1;">
+                            <button class="auto-btn active" id="autoBtn" title="Autonomous (AI-planned) control">
+                                <img id="autoBtnImg" src="/static/assets/AUTO_Button.png" alt="AUTO">
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <div class="card emergency-card">
-                    <h2 class="card-title">IN CASE OF AN EMERGENCY</h2>
-                    <div class="sos-container">
-                        <svg class="sos-progress" width="220" height="220" viewBox="0 0 220 220">
-                            <circle class="sos-progress-track" cx="110" cy="110" r="100"></circle>
-                            <circle class="sos-progress-fill" cx="110" cy="110" r="100" id="sosProgressFill"></circle>
-                        </svg>
-                        <button class="sos-btn" id="sosBtn">
-                            <img src="/static/assets/SOS_Button.png" alt="SOS">
-                        </button>
+                <!-- AI PLANNING (replaces the old SOS/emergency card). Shows the
+                     latest PDDL plan each time the planner re-plans. -->
+                <div class="card ai-planning">
+                    <h2 class="card-title">AI PLANNING</h2>
+                    <div class="plan-meta">
+                        <div class="plan-goal" id="planGoal">Awaiting first plan…</div>
+                        <div class="plan-sub">
+                            <span class="plan-badge" id="planPriority" data-priority="normal">—</span>
+                            <span class="plan-status" id="planStatus"></span>
+                        </div>
                     </div>
-                    <div class="sos-instruction">PRESS AND HOLD FOR 2 SECONDS</div>
+                    <div class="plan-actions-wrap">
+                        <div class="plan-actions-title">LATEST PLAN (being executed)</div>
+                        <ol class="plan-actions" id="planActions">
+                            <li class="plan-empty">No plan yet.</li>
+                        </ol>
+                    </div>
+                    <div class="plan-footer">
+                        <span id="planName">PDDL planner</span>
+                        <span id="planTime"></span>
+                    </div>
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN -->
+            <!-- RIGHT COLUMN: closed-world state (PDDL boolean facts) -->
             <div class="col right-col">
                 <div class="card current-stats">
                     <h2 class="card-title">CURRENT STATS</h2>
                     <div class="stats-list">
-                        <div class="stat-row">
-                            <span class="stat-label">LED Brightness</span><span class="colon">:</span>
-                            <span class="stat-options">Off / <span class="active">Dim</span> / Bright</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">FAN Speed</span><span class="colon">:</span>
-                            <span class="stat-options">Off / Lv 1 / <span class="active">Lv 2</span> / Lv 3</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Temperature</span><span class="colon">:</span>
-                            <span class="stat-options" id="temperatureStatus">Frosty / Cold / <span class="active">Neutral</span> / Warm /
-                                Hot</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Air Quality</span><span class="colon">:</span>
-                            <span class="stat-options" id="airQualityStatus"><span class="active">Normal</span> / Humid / Hazardous</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Sunlight</span><span class="colon">:</span>
-                            <span class="stat-options" id="sunlightStatus">Dark / <span class="active">Dull</span> / Bright</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Emergency</span><span class="colon">:</span>
-                            <span class="stat-options" id="emergencyStatusText"><span class="active">None</span> / SOS /
-                                Hazard / Medical Emergency</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card ai-insights">
-                    <h2 class="card-title">AI INSIGHTS</h2>
-                    <div class="stats-list">
-                        <div class="stat-row">
-                            <span class="stat-label">Patient State</span><span class="colon">:</span>
-                            <span class="stat-options" id="patientStateStatus"><span class="active">Awake</span> / Resting / Out of bed /
-                                Distressed</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Energy Usage</span><span class="colon">:</span>
-                            <span class="stat-options">Low Power / <span class="active">Normal</span> / High
-                                Consumption</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Room State</span><span class="colon">:</span>
-                            <span class="stat-options" id="roomStateStatus"><span class="active">Normal</span> / Distress / Hazardous /
-                                Emergency</span>
-                        </div>
+                        <div class="stats-subhead">Closed-world facts (PDDL, boolean)</div>
+                        <!-- Every true/false fact fed into the planner's :init:
+                             room + patient state, observed sensor facts, and the
+                             closed actuator states. Populated live from /data. -->
+                        <div class="pddl-facts" id="pddlFacts"></div>
                     </div>
                 </div>
             </div>

@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from paho.mqtt import client as mqtt
 
 from utils.i2c_semaphore import i2c_lock
+import shared_state
 import actuators.light as light
 import actuators.fan as fan
 import actuators.lock as door_lock
@@ -41,7 +42,6 @@ class MediGuardMqttBridge:
         self._buzzer_mode = "off"       # off / low / high
         self._buzzer_is_on = False
         self._red_led_mode = "off"      # off / blink
-        self._reset_sos_requested = threading.Event()
 
         # Bridge belief after it has received and applied a command.
         # This confirms command reception and interpretation. It is not sensor
@@ -73,8 +73,14 @@ class MediGuardMqttBridge:
             buzzer.setup()
             red_led.setup()
 
+        # Publish the initial believed actuator state so the dashboard has
+        # something to show before the first plan arrives.
+        self._publish_actuator_state()
+
+        # connect_async + loop_start so a missing broker never crashes startup;
+        # paho keeps retrying and (re)subscribes via _on_connect once it's up.
         print(f"[mqtt] connecting to {self.broker_host}:{self.broker_port}")
-        self.client.connect(self.broker_host, self.broker_port, keepalive=60)
+        self.client.connect_async(self.broker_host, self.broker_port, keepalive=60)
         self.client.loop_start()
 
     def stop(self):
@@ -125,13 +131,6 @@ class MediGuardMqttBridge:
         self._set_buzzer_mode("high")
         self._set_red_led_mode("blink")
 
-    def consume_sos_reset_request(self) -> bool:
-        """Return True once when staff sends hospital/<room>/cmd/reset_sos = 1."""
-        if self._reset_sos_requested.is_set():
-            self._reset_sos_requested.clear()
-            return True
-        return False
-
     # ------------------------------------------------------------------
     # MQTT callbacks and command decoding: AI planner -> hardware
     # ------------------------------------------------------------------
@@ -140,20 +139,21 @@ class MediGuardMqttBridge:
             print(f"[mqtt] connection rejected: {reason_code}")
             return
 
-        topic = f"hospital/{self.room_id}/cmd/#"
-        client.subscribe(topic, qos=1)
-        print(f"[mqtt] subscribed to {topic}")
+        # cmd/# carries actuator commands; plan carries the AI plan we forward
+        # to the dashboard so the visualisation can show the latest plan.
+        client.subscribe(f"hospital/{self.room_id}/cmd/#", qos=1)
+        client.subscribe(f"hospital/{self.room_id}/plan", qos=1)
+        print(f"[mqtt] subscribed to hospital/{self.room_id}/cmd/# and .../plan")
 
     def _on_message(self, client, userdata, msg):
+        # The AI plan is forwarded verbatim to the dashboard state.
+        if msg.topic.endswith("/plan"):
+            self._handle_plan_message(msg.payload)
+            return
+
         command = msg.topic.rsplit("/", 1)[-1]
         value = msg.payload.decode("utf-8").strip().lower()
         print(f"[mqtt] command received: {command}={value}")
-
-        if command == "reset_sos":
-            if value in {"1", "true", "reset"}:
-                self._reset_sos_requested.set()
-                print("[ACTUATOR STATE] SOS reset request received")
-            return
 
         # A critical local profile blocks stale normal planner commands.
         if self.safety_override_active:
@@ -205,6 +205,7 @@ class MediGuardMqttBridge:
         with self._command_lock:
             self._actuator_state["light"] = label
         print(f"[ACTUATOR STATE] light={percent}% -> {closed_state}")
+        self._publish_actuator_state()
 
     def _apply_fan(self, percent: int):
         fan_states = {
@@ -219,6 +220,7 @@ class MediGuardMqttBridge:
         with self._command_lock:
             self._actuator_state["fan"] = label
         print(f"[ACTUATOR STATE] fan={percent}% -> {closed_state}")
+        self._publish_actuator_state()
 
     def _apply_door(self, value: str):
         # 0 = locked; 1 = unlocked. Relay polarity is hidden in lock.py.
@@ -236,6 +238,7 @@ class MediGuardMqttBridge:
             print("[ACTUATOR STATE] door=1 -> UNLOCKED = door-unlocked")
         else:
             raise ValueError("door must be 0/locked or 1/unlocked")
+        self._publish_actuator_state()
 
     def _set_buzzer_mode(self, value: str):
         aliases = {
@@ -257,6 +260,7 @@ class MediGuardMqttBridge:
             self._buzzer_mode = mode
             self._actuator_state["buzzer"] = mode
         print(f"[ACTUATOR STATE] buzzer={mode} -> {state_text}")
+        self._publish_actuator_state()
 
     def _set_red_led_mode(self, value: str):
         aliases = {
@@ -276,11 +280,26 @@ class MediGuardMqttBridge:
             self._red_led_mode = mode
             self._actuator_state["red_led"] = mode
         print(f"[ACTUATOR STATE] red_led={mode} -> {state_text}")
+        self._publish_actuator_state()
 
     def get_actuator_state(self) -> dict:
         """Return the last command interpretation held by this bridge."""
         with self._command_lock:
             return dict(self._actuator_state)
+
+    def _publish_actuator_state(self):
+        """Mirror the believed closed actuator state to the dashboard."""
+        shared_state.merge({"actuator_state": self.get_actuator_state()})
+
+    def _handle_plan_message(self, payload: bytes):
+        """Forward the AI planner's latest plan to the dashboard state."""
+        try:
+            plan = json.loads(payload.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError) as exc:
+            print(f"[mqtt] ignored malformed plan message: {exc}")
+            return
+        shared_state.merge({"plan": plan})
+        print(f"[mqtt] plan forwarded to dashboard: {plan.get('goal', '?')}")
 
     def tick(self):
         """Run every ~50 ms from main.py for buzzer pulse / LED blink output."""

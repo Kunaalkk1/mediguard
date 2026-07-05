@@ -53,9 +53,12 @@ self.addEventListener('activate', event => {
 
 // Fetch Event - Network First, falling back to Cache
 self.addEventListener('fetch', event => {
-    // NEVER cache the live data endpoint — always fetch fresh.
-    if (event.request.url.includes('/data')) {
-        event.respondWith(fetch(event.request));
+    // Only cache GET requests for static assets. Never intercept the live data
+    // endpoint or the control API (POST) -- let the browser handle those so
+    // they are always fresh and never cached (Cache API can't store POSTs).
+    if (event.request.method !== 'GET'
+        || event.request.url.includes('/data')
+        || event.request.url.includes('/api/')) {
         return;
     }
 
