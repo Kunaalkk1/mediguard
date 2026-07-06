@@ -669,21 +669,6 @@ body.emergency-active {
     to { box-shadow: 0 0 0.75rem rgba(200, 35, 51, 0.8); }
 }
 
-/* SOS trigger: distinct amber so it reads apart from the medical button. */
-.sos-emergency-btn {
-    border-color: #E0A800;
-    color: #B8860B;
-}
-
-.sos-emergency-btn:hover {
-    background: rgba(224, 168, 0, 0.1);
-}
-
-.sos-emergency-btn.active {
-    background: #E0A800;
-    color: #FFF;
-}
-
 /* Right Column (merged current state + AI insights) */
 .current-stats {
     flex: 1;

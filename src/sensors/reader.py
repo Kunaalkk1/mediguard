@@ -1,17 +1,20 @@
 import time
 
-from .grove_sensors import read_light, read_gas, read_motion, read_sos, read_pressure
+from .grove_sensors import read_light, read_gas, read_motion, read_pressure
 from .dht_reader import read_temperature_humidity
 from .vitals import read_pulse_spo2
 
 
 def read_all():
-    
+
     # Sensors that return two values get unpacked first.
     pulse, spo2 = read_pulse_spo2()
     temperature, humidity = read_temperature_humidity()
     pressure_raw, on_bed = read_pressure()
 
+    # SOS is intentionally NOT read here: the dedicated high-priority SOS watcher
+    # thread polls the button directly, so reading it again in this batch would
+    # only add I2C contention. The brain folds the latched SOS state back in.
     snapshot = {
         "pulse":        pulse,
         "spo2":         spo2,
@@ -22,7 +25,7 @@ def read_all():
         "temperature":  temperature,
         "humidity":     humidity,
         "gas":          read_gas(),
-        "sos":          read_sos(),
+        "sos":          0,
     }
     return snapshot
 

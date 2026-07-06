@@ -94,15 +94,22 @@ class DoorAutoLock:
 def sos_watcher():
     """Highest-priority polling loop for the physical SOS button.
 
-    A continuous hold of HOLD_SECONDS toggles the emergency state once, then
-    waits for the button to be released before it can toggle again. This mirrors
-    the "press and hold for 2 seconds" behaviour of the dashboard and avoids
-    accidental taps flipping the state.
+    Holding the button for HOLD_SECONDS toggles the emergency state once; the
+    button must then be released before it can toggle again. A short release
+    (button bounce or a single starved I2C read) is debounced so it does not
+    reset the hold timer -- without this the 2 s hold rarely completed because
+    the shared I2C bus is busy with the other sensors.
     """
-    from sensors.grove_sensors import read_sos
+    from sensors.grove_sensors import setup_sos, read_sos
 
     HOLD_SECONDS = 2.0
+    RELEASE_DEBOUNCE = 0.4      # ignore releases shorter than this during a hold
+
+    with i2c_lock:
+        setup_sos()
+
     press_started = None
+    released_at = None
     toggled_this_hold = False
 
     while not stop_flag.is_set():
@@ -112,11 +119,12 @@ def sos_watcher():
         except Exception as exc:
             # A flaky button/I2C read must never kill the safety-critical loop.
             print(f"[SOS] read failed, retrying: {exc}")
-            time.sleep(0.1)
+            time.sleep(0.2)
             continue
         now = time.monotonic()
 
         if pressed:
+            released_at = None
             if press_started is None:
                 press_started = now
                 toggled_this_hold = False
@@ -125,10 +133,15 @@ def sos_watcher():
                 toggled_this_hold = True
                 print(f"[SOS] *** 2s HOLD: EMERGENCY {'ON' if state else 'OFF'} ***")
         else:
-            press_started = None
-            toggled_this_hold = False
+            # Only treat the button as released after the debounce window, so a
+            # momentary dropout mid-hold doesn't restart the 2 s timer.
+            if released_at is None:
+                released_at = now
+            elif now - released_at >= RELEASE_DEBOUNCE:
+                press_started = None
+                toggled_this_hold = False
 
-        time.sleep(0.02)
+        time.sleep(0.05)
 
 
 def sensor_worker():

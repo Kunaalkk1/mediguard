@@ -94,7 +94,6 @@ const lightSlider = document.getElementById('lightSlider');
 const fanSlider = document.getElementById('fanSlider');
 const emergencyOverlay = document.getElementById('emergencyOverlay');
 const medEmergencyBtn = document.getElementById('medEmergencyBtn');
-const sosEmergencyBtn = document.getElementById('sosEmergencyBtn');
 const autoBtn = document.getElementById('autoBtn');
 
 // Timestamps of the last user slider drag, so the 1 s /data refresh does not
@@ -230,16 +229,10 @@ function renderEmergency(data) {
 }
 
 function renderMedButton(toggles) {
-    if (medEmergencyBtn) {
-        const on = !!(toggles && toggles.vitals_emergency);
-        medEmergencyBtn.classList.toggle('active', on);
-        medEmergencyBtn.textContent = on ? 'Clear Medical Emergency' : 'Simulate Medical Emergency';
-    }
-    if (sosEmergencyBtn) {
-        const on = !!(toggles && toggles.sos_emergency);
-        sosEmergencyBtn.classList.toggle('active', on);
-        sosEmergencyBtn.textContent = on ? 'Clear SOS Emergency' : 'Trigger SOS Emergency';
-    }
+    if (!medEmergencyBtn) return;
+    const on = !!(toggles && toggles.vitals_emergency);
+    medEmergencyBtn.classList.toggle('active', on);
+    medEmergencyBtn.textContent = on ? 'Clear Medical Emergency' : 'Simulate Medical Emergency';
 }
 
 const planGoal = document.getElementById('planGoal');
@@ -413,23 +406,20 @@ if (autoBtn) {
     });
 }
 
-// --- Emergency simulation toggles -------------------------------------------
-function wireEmergencyButton(btn, endpoint) {
-    if (!btn) return;
-    btn.addEventListener('click', async () => {
-        btn.disabled = true;
+// --- Medical emergency toggle (stand-in for the removed SpO2 sensor) --------
+if (medEmergencyBtn) {
+    medEmergencyBtn.addEventListener('click', async () => {
+        medEmergencyBtn.disabled = true;
         try {
-            await fetch(endpoint, { method: 'POST' });
+            await fetch('/api/emergency/vitals/toggle', { method: 'POST' });
         } catch (err) {
-            console.log('emergency toggle failed:', err);
+            console.log('medical emergency toggle failed:', err);
         } finally {
-            btn.disabled = false;
+            medEmergencyBtn.disabled = false;
             refresh();
         }
     });
 }
-wireEmergencyButton(medEmergencyBtn, '/api/emergency/vitals/toggle');
-wireEmergencyButton(sosEmergencyBtn, '/api/emergency/sos/toggle');
 
 // --- Auto full-screen -------------------------------------------------------
 // Browsers only allow fullscreen from a user gesture, so we try immediately

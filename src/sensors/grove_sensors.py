@@ -3,12 +3,22 @@ from .grove_base import ON_PI, grovepi
 
 LIGHT_PORT    = 0     # analog A0  -- Grove light sensor
 PRESSURE_PORT = 1     # analog A1  -- RP-S40-ST FSR (force/pressure)
-GAS_PORT      = 2     # analog A2  -- MQ135 
+GAS_PORT      = 2     # analog A2  -- MQ135
 
 PIR_PORT      = 2     # digital D2 -- Grove PIR motion (separate socket from A2)
-SOS_PORT      = 7     # digital D7 -- Grove button (SOS) 
+SOS_PORT      = 7     # digital D7 -- Grove button (SOS)
 
 PRESSURE_THRESHOLD = 400   # raw value above this = someone on the bed  # TUNE ON PI
+
+# The Grove Button reads HIGH (1) when pressed. Flip this if the button is wired
+# with a pull-up (reads LOW when pressed).
+SOS_ACTIVE_HIGH = True
+
+
+def setup_sos():
+    """Set the SOS button pin as a digital INPUT. Call once at startup."""
+    if ON_PI:
+        grovepi.pinMode(SOS_PORT, "INPUT")
 
 
 def read_light():
@@ -36,11 +46,12 @@ def read_motion():
 
 
 def read_sos():
-    """True if the SOS button is pressed."""
-    if ON_PI:
-        return grovepi.digitalRead(SOS_PORT) == 1
-    else:
-        return False  # fake: rarely pressed
+    """True if the SOS button is currently pressed."""
+    if not ON_PI:
+        return False  # simulation: physical button not present
+    raw = grovepi.digitalRead(SOS_PORT)
+    pressed_level = 1 if SOS_ACTIVE_HIGH else 0
+    return raw == pressed_level
 
 
 def read_pressure():
