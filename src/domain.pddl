@@ -244,6 +244,18 @@
     )
   )
 
+  ;; Solid ON (critical states): lit but not blinking.
+  (:action set-red-led-on
+    :parameters (?led - red-led ?r - room)
+    :precondition (red-led-in ?led ?r)
+    :effect (and
+      (red-led-on ?led)
+      (red-led-not-blinking ?led)
+      (not (red-led-not-on ?led))
+      (not (red-led-blinking ?led))
+    )
+  )
+
   (:action set-red-led-blink
     :parameters (?led - red-led ?r - room)
     :precondition (red-led-in ?led ?r)

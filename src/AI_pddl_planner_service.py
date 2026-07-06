@@ -22,8 +22,15 @@ BROKER_HOST = os.getenv("BROKER_HOST", "localhost")
 BROKER_PORT = int(os.getenv("BROKER_PORT", "1883"))
 ROOM_ID = os.getenv("ROOM_ID", "room101")
 
-# "online" uses Planning.Domains. "local" uses Fast Downward if you install it later.
+# "online" uses Planning.Domains, "local" uses Fast Downward, "offline" uses the
+# built-in solver (no internet needed).
 PLANNER_MODE = os.getenv("PLANNER_MODE", "online").lower()
+
+# When online planning fails (e.g. no internet while the Pi hosts a hotspot),
+# fall back to the built-in offline planner instead of reporting a failure.
+PLANNER_FALLBACK_OFFLINE = os.getenv("PLANNER_FALLBACK_OFFLINE", "1").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 
 # Planning.Domains package endpoint (asynchronous submit + poll). If this
 # service changes, test your PDDL in the browser first.
@@ -44,17 +51,19 @@ PLAN_FILE = PROJECT_DIR / "plan_latest.txt"
 
 # ============================================================
 # CURRENT ACTUATOR STATE
-# This is the planner service's belief about the current actuator state.
-# After executing PDDL actions, we update this state.
+# The planner service's belief about the current actuator state. It MUST match
+# the bridge's initial state (all off / locked) so the first plan actually
+# commands the actuators to the goal instead of assuming they are already there.
+# After executing PDDL actions, we update this belief.
 # ============================================================
 
 current_actuator_state = {
     # Semantic closed states used by the PDDL model.
-    "light": "dim",          # off / dim / bright
-    "fan": "medium",         # off / low / medium / high
+    "light": "off",          # off / dim / bright
+    "fan": "off",            # off / low / medium / high
     "door": "locked",        # locked / unlocked
     "buzzer": "off",         # off / low / high
-    "red_led": "off",        # off / blink
+    "red_led": "off",        # off / on / blink
 }
 
 previous_goal_signature = None
@@ -65,47 +74,51 @@ previous_goal_signature = None
 # ============================================================
 
 
-def mode_predicates(modes: dict[str, str]) -> list[str]:
-    """Return the closed PDDL facts for one complete actuator configuration.
-
-    Each actuator is represented by valid combinations of Boolean facts.
-    For example:
-      light off    = light-not-on + light-not-dim
-      light dim    = light-on + light-dim
-      light bright = light-on + light-not-dim
-    """
-
-    light = {
+# Closed Boolean facts for each actuator value. red_led "on" is solid; "blink"
+# pulses -- the Final Document uses solid ON for critical states and Blinking
+# for out-of-bed.
+ACTUATOR_FACTS = {
+    "light": {
         "off": ["(light-not-on light1)", "(light-not-dim light1)"],
         "dim": ["(light-on light1)", "(light-dim light1)"],
         "bright": ["(light-on light1)", "(light-not-dim light1)"],
-    }[modes["light"]]
-
-    fan = {
+    },
+    "fan": {
         "off": ["(fan-not-on fan1)", "(fan-not-medium fan1)", "(fan-not-high fan1)"],
         # "on" with neither medium nor high means low speed.
         "low": ["(fan-on fan1)", "(fan-not-medium fan1)", "(fan-not-high fan1)"],
         "medium": ["(fan-on fan1)", "(fan-medium fan1)", "(fan-not-high fan1)"],
         "high": ["(fan-on fan1)", "(fan-not-medium fan1)", "(fan-high fan1)"],
-    }[modes["fan"]]
-
-    door = {
+    },
+    "door": {
         "locked": ["(door-locked door1)"],
         "unlocked": ["(door-unlocked door1)"],
-    }[modes["door"]]
-
-    buzzer = {
+    },
+    "buzzer": {
         "off": ["(buzzer-not-on buzzer1)", "(buzzer-not-high buzzer1)"],
         "low": ["(buzzer-on buzzer1)", "(buzzer-not-high buzzer1)"],
         "high": ["(buzzer-on buzzer1)", "(buzzer-high buzzer1)"],
-    }[modes["buzzer"]]
-
-    red_led = {
+    },
+    "red_led": {
         "off": ["(red-led-not-on redled1)", "(red-led-not-blinking redled1)"],
+        "on": ["(red-led-on redled1)", "(red-led-not-blinking redled1)"],
         "blink": ["(red-led-on redled1)", "(red-led-blinking redled1)"],
-    }[modes["red_led"]]
+    },
+}
 
-    return light + fan + door + buzzer + red_led
+
+def mode_predicates(modes: dict[str, str]) -> list[str]:
+    """Return the closed PDDL facts for the given actuator configuration.
+
+    `modes` may be partial: only the actuators listed are constrained. This lets
+    a goal leave an actuator untouched (e.g. the door in the Awake state, which
+    the patient/staff control manually rather than the AI planner).
+    """
+    facts: list[str] = []
+    for actuator in ("light", "fan", "door", "buzzer", "red_led"):
+        if actuator in modes:
+            facts += ACTUATOR_FACTS[actuator][modes[actuator]]
+    return facts
 
 
 def actuator_init_predicates() -> str:
@@ -222,66 +235,66 @@ def goal_from_state(state: dict) -> tuple[str, str, str]:
     out_of_bed_minutes = int(state.get("out_of_bed_minutes", 0))
     summary = state.get("sensor_summary", {})
 
+    hot_or_humid = (
+        summary.get("temperature_status") == "hot"
+        or summary.get("humidity_status") == "high"
+    )
+
+    # Goals are PARTIAL: an actuator absent from `modes` is left untouched by the
+    # AI planner (per the Final Document). Critical states raise a solid red LED,
+    # unlock the door, and set the buzzer/light; the fan is left as-is. The door
+    # in Awake/Out-of-bed is patient/staff controlled, so it is omitted there.
     if room_state == "hazardous":
         goal_name, priority, modes = (
-            "Handle hazardous room condition",
-            "critical",
-            {"light": "bright", "fan": "high", "door": "unlocked", "buzzer": "high", "red_led": "blink"},
+            "Handle hazardous room condition", "critical",
+            {"light": "bright", "door": "unlocked", "buzzer": "high", "red_led": "on"},
         )
     elif room_state == "emergency":
         goal_name, priority, modes = (
-            "Handle emergency / SOS condition",
-            "critical",
-            {"light": "bright", "fan": "medium", "door": "unlocked", "buzzer": "high", "red_led": "blink"},
+            "Handle emergency / SOS condition", "critical",
+            {"light": "bright", "door": "unlocked", "buzzer": "high", "red_led": "on"},
         )
     elif patient_state == "distress":
         goal_name, priority, modes = (
-            "Handle patient distress",
-            "critical",
-            {"light": "bright", "fan": "medium", "door": "unlocked", "buzzer": "high", "red_led": "blink"},
+            "Handle patient distress", "critical",
+            {"light": "bright", "door": "unlocked", "buzzer": "high", "red_led": "on"},
         )
-    elif patient_state == "out_of_bed" and out_of_bed_minutes >= 15:
+    elif patient_state == "out_of_bed":
+        # Light/fan/door untouched. Blink the LED; low alarm only after 15 min.
+        buzzer_mode = "low" if out_of_bed_minutes >= 15 else "off"
         goal_name, priority, modes = (
-            "Alert staff because patient is out of bed",
-            "warning",
-            {"light": "dim", "fan": "medium", "door": "locked", "buzzer": "low", "red_led": "off"},
+            "Watch patient who is out of bed",
+            "warning" if out_of_bed_minutes >= 15 else "normal",
+            {"buzzer": buzzer_mode, "red_led": "blink"},
         )
     elif patient_state == "resting":
-        fan_mode = "medium" if (
-            summary.get("temperature_status") == "hot"
-            or summary.get("humidity_status") == "high"
-        ) else "low"
         goal_name, priority, modes = (
-            "Support patient rest and save power",
-            "normal",
-            {"light": "off", "fan": fan_mode, "door": "locked", "buzzer": "off", "red_led": "off"},
+            "Support patient rest and save power", "normal",
+            {"light": "off", "fan": "medium" if hot_or_humid else "low",
+             "door": "locked", "buzzer": "off", "red_led": "off"},
         )
     elif patient_state == "awake":
+        # Auto light: brighter when the room is dark, using min power otherwise.
         light_mode = "bright" if summary.get("light_level") == "dark" else "dim"
-        fan_mode = "high" if (
-            summary.get("temperature_status") == "hot"
-            or summary.get("humidity_status") == "high"
-        ) else "medium"
         goal_name, priority, modes = (
-            "Maintain patient comfort while awake",
-            "normal",
-            {"light": light_mode, "fan": fan_mode, "door": "locked", "buzzer": "off", "red_led": "off"},
+            "Maintain patient comfort while awake", "normal",
+            {"light": light_mode, "fan": "high" if hot_or_humid else "medium",
+             "buzzer": "off", "red_led": "off"},   # door omitted (manual control)
         )
     else:
         goal_name, priority, modes = (
-            "Maintain safe default room state",
-            "normal",
-            {"light": "dim", "fan": "medium", "door": "locked", "buzzer": "off", "red_led": "off"},
+            "Maintain safe default room state", "normal",
+            {"light": "dim", "buzzer": "off", "red_led": "off"},
         )
 
     goal_pddl = "(and\n              " + "\n              ".join(mode_predicates(modes)) + "\n            )"
-    return goal_name, priority, goal_pddl
+    return goal_name, priority, goal_pddl, modes
 
 
-def generate_problem_pddl(state: dict) -> tuple[str, str, str]:
+def generate_problem_pddl(state: dict) -> tuple[str, str, str, dict]:
     """Build problem_latest.pddl from observations and the actuator state."""
 
-    goal_name, priority, goal_pddl = goal_from_state(state)
+    goal_name, priority, goal_pddl, modes = goal_from_state(state)
 
     problem_text = f"""(define (problem room101-current-cycle)
   (:domain smart-hospital-room)
@@ -307,7 +320,7 @@ def generate_problem_pddl(state: dict) -> tuple[str, str, str]:
 )
 """
 
-    return problem_text, goal_name, priority
+    return problem_text, goal_name, priority, modes
 
 
 def make_goal_signature(state: dict) -> tuple[Any, ...]:
@@ -407,17 +420,29 @@ def run_online_planner(domain_text: str, problem_text: str) -> list[str]:
         if result_data.get("status", "") == "PENDING":
             continue
 
-        plan_lines = extract_plan_lines(result_data)
-
-        if plan_lines:
-            return plan_lines
+        # An empty plan is a valid solution: it means the goal is already
+        # satisfied by the current state, so no actions are needed. Only a
+        # missing/failed solve is a real error.
+        if _solve_completed(result_data):
+            return extract_plan_lines(result_data)
 
         raise RuntimeError(
-            "Planner finished, but no plan actions were found. "
+            "Planner did not return a solution. "
             f"Final response: {json.dumps(result_data, indent=2)[:2000]}"
         )
 
     raise RuntimeError("Online planner timed out after polling for 30 seconds.")
+
+
+def _solve_completed(data: Any) -> bool:
+    """True if the solver returned a result object (even a 0-length plan)."""
+    if not isinstance(data, dict):
+        return False
+    for wrapper in data.get("plans", []):
+        result = wrapper.get("result", {})
+        if isinstance(result, dict) and "plan" in result:
+            return True
+    return False
 
 
 def run_local_fast_downward(domain_file: Path, problem_file: Path) -> list[str]:
@@ -525,6 +550,7 @@ KNOWN_PDDL_ACTIONS = {
     "set-buzzer-low",
     "set-buzzer-high",
     "set-red-led-off",
+    "set-red-led-on",
     "set-red-led-blink",
 }
 
@@ -601,20 +627,74 @@ def clean_plan_action(line: str) -> str:
 
     return f"({' '.join(tokens)})"
 
-def run_planner(problem_text: str) -> list[str]:
-    """Run selected PDDL planner and return plan lines."""
+# ------------------------------------------------------------------
+# Offline built-in planner
+# ------------------------------------------------------------------
+# This STRIPS domain is trivial to solve: each actuator is set by exactly one
+# independent action, so the optimal plan is just the set-actions for the
+# actuators whose current believed state differs from the goal. This lets the
+# system run with no internet (e.g. while the Pi hosts its own hotspot).
+
+OFFLINE_OBJECTS = {
+    "light": "light1", "fan": "fan1", "door": "door1",
+    "buzzer": "buzzer1", "red_led": "redled1",
+}
+
+OFFLINE_ACTIONS = {
+    ("light", "off"): "set-light-off",
+    ("light", "dim"): "set-light-medium",
+    ("light", "bright"): "set-light-max",
+    ("fan", "off"): "set-fan-off",
+    ("fan", "low"): "set-fan-low",
+    ("fan", "medium"): "set-fan-medium",
+    ("fan", "high"): "set-fan-high",
+    ("door", "locked"): "lock-door",
+    ("door", "unlocked"): "unlock-door",
+    ("buzzer", "off"): "set-buzzer-off",
+    ("buzzer", "low"): "set-buzzer-low",
+    ("buzzer", "high"): "set-buzzer-high",
+    ("red_led", "off"): "set-red-led-off",
+    ("red_led", "on"): "set-red-led-on",
+    ("red_led", "blink"): "set-red-led-blink",
+}
+
+
+def run_offline_planner(modes: dict) -> list[str]:
+    """Deterministic built-in solver -- no external service required."""
+    plan = []
+    for actuator, target in modes.items():
+        if current_actuator_state.get(actuator) != target:
+            action = OFFLINE_ACTIONS[(actuator, target)]
+            plan.append(f"({action} {OFFLINE_OBJECTS[actuator]} room101)")
+    return plan
+
+
+def run_planner(problem_text: str, modes: dict) -> list[str]:
+    """Run the selected PDDL planner and return plan lines."""
 
     domain_text = DOMAIN_FILE.read_text(encoding="utf-8")
-
     PROBLEM_FILE.write_text(problem_text, encoding="utf-8")
 
-    if PLANNER_MODE == "online":
-        return run_online_planner(domain_text, problem_text)
+    if PLANNER_MODE == "offline":
+        return run_offline_planner(modes)
 
     if PLANNER_MODE == "local":
         return run_local_fast_downward(DOMAIN_FILE, PROBLEM_FILE)
 
-    raise RuntimeError(f"Unknown PLANNER_MODE={PLANNER_MODE}. Use online or local.")
+    if PLANNER_MODE == "online":
+        try:
+            return run_online_planner(domain_text, problem_text)
+        except Exception as exc:
+            if PLANNER_FALLBACK_OFFLINE:
+                # No internet (common while the Pi hosts a hotspot) or the
+                # service is down -> fall back to the built-in planner so the
+                # system keeps working instead of continuously failing.
+                print(f"[planner] online planner unavailable ({exc}); "
+                      f"using offline fallback")
+                return run_offline_planner(modes)
+            raise
+
+    raise RuntimeError(f"Unknown PLANNER_MODE={PLANNER_MODE}. Use online, local, or offline.")
 
 
 # ============================================================
@@ -681,8 +761,12 @@ def execute_pddl_action(client: mqtt.Client, room_id: str, action_line: str):
         client.publish(f"{base_topic}/cmd/red_led", "0")
         current_actuator_state["red_led"] = "off"
 
+    elif action.startswith("(set-red-led-on"):
+        client.publish(f"{base_topic}/cmd/red_led", "on")
+        current_actuator_state["red_led"] = "on"
+
     elif action.startswith("(set-red-led-blink"):
-        client.publish(f"{base_topic}/cmd/red_led", "1")
+        client.publish(f"{base_topic}/cmd/red_led", "blink")
         current_actuator_state["red_led"] = "blink"
 
     else:
@@ -713,11 +797,16 @@ def publish_plan_to_dashboard(
 
     base_topic = f"hospital/{room_id}"
 
+    planner_names = {
+        "online": "Planning.Domains",
+        "local": "Fast Downward",
+        "offline": "Built-in planner",
+    }
     dashboard_plan = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "planner_type": "pddl",
         "planner_mode": PLANNER_MODE,
-        "planner_name": "Planning.Domains" if PLANNER_MODE == "online" else "Fast Downward",
+        "planner_name": planner_names.get(PLANNER_MODE, "PDDL planner"),
         "status": status,
         "priority": priority,
         "goal": goal_name,
@@ -764,10 +853,10 @@ def on_message(client: mqtt.Client, userdata, msg):
     print(f"[planner] state changed -> replanning "
           f"(room={state.get('room_state')}, patient={state.get('patient_state')})")
 
-    problem_text, goal_name, priority = generate_problem_pddl(state)
+    problem_text, goal_name, priority, modes = generate_problem_pddl(state)
 
     try:
-        plan_lines = run_planner(problem_text)
+        plan_lines = run_planner(problem_text, modes)
         print("\nPDDL plan found:")
         for line in plan_lines:
             print(line)

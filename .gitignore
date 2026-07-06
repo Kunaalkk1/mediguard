@@ -8,3 +8,6 @@ dist/
 *.egg-info/
 .eggs/
 *.egg
+# Planner runtime artifacts (regenerated each run)
+src/plan_latest.txt
+src/problem_latest.pddl

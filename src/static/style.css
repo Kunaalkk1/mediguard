@@ -639,9 +639,9 @@ body.emergency-active {
 
 /* Medical-emergency toggle (patient monitor) */
 .med-emergency-btn {
-    margin-top: 0.5rem;
+    margin-top: 0.4rem;
     width: 100%;
-    padding: 0.5rem;
+    padding: 0.45rem;
     border: 2px solid var(--sos-red);
     border-radius: 0.75rem;
     background: transparent;
@@ -667,6 +667,21 @@ body.emergency-active {
 @keyframes pulseBtn {
     from { box-shadow: 0 0 0 rgba(200, 35, 51, 0.5); }
     to { box-shadow: 0 0 0.75rem rgba(200, 35, 51, 0.8); }
+}
+
+/* SOS trigger: distinct amber so it reads apart from the medical button. */
+.sos-emergency-btn {
+    border-color: #E0A800;
+    color: #B8860B;
+}
+
+.sos-emergency-btn:hover {
+    background: rgba(224, 168, 0, 0.1);
+}
+
+.sos-emergency-btn.active {
+    background: #E0A800;
+    color: #FFF;
 }
 
 /* Right Column (merged current state + AI insights) */

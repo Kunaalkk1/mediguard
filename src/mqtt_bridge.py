@@ -42,12 +42,13 @@ class MediGuardMqttBridge:
         self._safety_profile = None
         self._buzzer_mode = "off"       # off / low / high
         self._buzzer_is_on = False
-        self._red_led_mode = "off"      # off / blink
+        self._red_led_mode = "off"      # off / on / blink
 
-        # Last light/fan level actually driven to hardware (0-100), for change
-        # detection so re-asserting the same value every brain cycle is a no-op.
+        # Last light/fan level and door state actually driven to hardware, for
+        # change detection so re-asserting the same value is a cheap no-op.
         self._light_percent = None
         self._fan_percent = None
+        self._door_state = "locked"
         # Latest light/fan the planner asked for, re-applied when leaving manual.
         self._auto_light = 0
         self._auto_fan = 0
@@ -132,13 +133,13 @@ class MediGuardMqttBridge:
             self._set_red_led_mode("off")
             return
 
-        fan_value = 100 if profile == "hazardous" else 50
-
+        # Critical states (hazardous / emergency / distress): max light, unlock
+        # for access, high alarm, solid red LED. The fan is left untouched, per
+        # the Final Document.
         self._apply_light(100)
-        self._apply_fan(fan_value)
         self._apply_door("1")
         self._set_buzzer_mode("high")
-        self._set_red_led_mode("blink")
+        self._set_red_led_mode("on")
 
     # ------------------------------------------------------------------
     # Manual / auto light + fan control (precedence: safety > manual > auto)
@@ -269,20 +270,29 @@ class MediGuardMqttBridge:
     def _apply_door(self, value: str):
         # 0 = locked; 1 = unlocked. Relay polarity is hidden in lock.py.
         if value in {"0", "lock", "locked"}:
-            with i2c_lock:
-                door_lock.lock()
-            with self._command_lock:
-                self._actuator_state["door"] = "locked"
-            print("[ACTUATOR STATE] door=0 -> LOCKED = door-locked")
+            target = "locked"
         elif value in {"1", "unlock", "unlocked"}:
-            with i2c_lock:
-                door_lock.unlock()
-            with self._command_lock:
-                self._actuator_state["door"] = "unlocked"
-            print("[ACTUATOR STATE] door=1 -> UNLOCKED = door-unlocked")
+            target = "unlocked"
         else:
             raise ValueError("door must be 0/locked or 1/unlocked")
+
+        if target == self._door_state:
+            return
+        self._door_state = target
+
+        with i2c_lock:
+            door_lock.lock() if target == "locked" else door_lock.unlock()
+        with self._command_lock:
+            self._actuator_state["door"] = target
+        print(f"[ACTUATOR STATE] door -> {target.upper()} = door-{target}")
         self._publish_actuator_state()
+
+    def set_door(self, value: str):
+        """Public door control (manual lock/unlock, auto-lock). Blocked while a
+        safety profile holds the door unlocked for emergency access."""
+        if self.safety_override_active:
+            return
+        self._apply_door(value)
 
     def _set_buzzer_mode(self, value: str):
         aliases = {
@@ -309,14 +319,16 @@ class MediGuardMqttBridge:
     def _set_red_led_mode(self, value: str):
         aliases = {
             "0": "off", "off": "off",
-            "1": "blink", "blink": "blink", "on": "blink",
+            "on": "on", "solid": "on",
+            "1": "blink", "blink": "blink",
         }
         if value not in aliases:
-            raise ValueError("red_led must be 0/off or 1/blink")
+            raise ValueError("red_led must be off, on, or blink")
 
         mode = aliases[value]
         state_text = {
             "off": "OFF = red-led-not-on + red-led-not-blinking",
+            "on": "ON = red-led-on + red-led-not-blinking",
             "blink": "BLINK = red-led-on + red-led-blinking",
         }[mode]
 
@@ -367,4 +379,4 @@ class MediGuardMqttBridge:
             self._buzzer_is_on = should_sound
 
         with i2c_lock:
-            red_led.set_from_sos(red_led_mode == "blink", now)
+            red_led.apply(red_led_mode, now)     # off / on (solid) / blink

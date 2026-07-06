@@ -39,6 +39,40 @@ MQTT). The drivers map that scale into a **0–40 % PWM duty** ceiling calibrate
 for the hardware (`HW_MAX_DUTY` in `actuators/light.py` and `actuators/fan.py`),
 so 100 = 40 % duty.
 
+## Hardware pin / port map
+
+The GrovePi+ sits on the Raspberry Pi's I²C bus (I²C address `0x04`; Pi pins
+**SDA = GPIO2 / phys 3**, **SCL = GPIO3 / phys 5**). Most peripherals plug into
+GrovePi ports; the light and fan are driven by the Pi's own hardware PWM into an
+L298N motor driver.
+
+### Sensors
+
+| Peripheral | Kind | Bus / driver | Port / pin | Code |
+| --- | --- | --- | --- | --- |
+| Grove light sensor | analog | GrovePi | **A0** | `sensors/grove_sensors.py` `LIGHT_PORT` |
+| Bed pressure (RP-S40-ST FSR) | analog | GrovePi | **A1** | `sensors/grove_sensors.py` `PRESSURE_PORT` |
+| MQ135 gas / air quality | analog | GrovePi | **A2** | `sensors/grove_sensors.py` `GAS_PORT` |
+| Grove PIR motion | digital | GrovePi | **D2** | `sensors/grove_sensors.py` `PIR_PORT` |
+| DHT11 temperature + humidity | digital | GrovePi | **D4** | `sensors/dht_reader.py` `DHT_PORT` |
+| Grove button (SOS) | digital | GrovePi | **D7** | `sensors/grove_sensors.py` `SOS_PORT` |
+| Pulse / SpO₂ (vitals) | software | — | — | `sensors/vitals.py` (simulated) |
+
+### Actuators
+
+| Peripheral | Kind | Bus / driver | Port / pin | Code |
+| --- | --- | --- | --- | --- |
+| Red alert LED | digital | GrovePi | **D3** | `actuators/red_led.py` `RED_LED_PORT` |
+| Buzzer | digital | GrovePi | **D5** | `actuators/buzzer.py` `BUZZER_PORT` |
+| Door lock relay (solenoid) | digital | GrovePi | **D6** | `actuators/lock.py` `RELAY_PORT` |
+| Light (L298N ENB) | PWM | Pi hardware PWM | **GPIO12** (pwm0, phys 32) | `actuators/light.py` `LIGHT_PWM_PIN` |
+| Fan (L298N ENA) | PWM | Pi hardware PWM | **GPIO13** (pwm1, phys 33) | `actuators/fan.py` `FAN_PWM_PIN` |
+
+> The light/fan PWM pins need the `pwm-2chan` overlay under `[all]` in
+> `/boot/firmware/config.txt` (`dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4`),
+> then a reboot. The L298N direction pins (IN1–IN4) are tied to fixed levels in
+> hardware, so only the enable pins are driven.
+
 ## Manual vs. auto control
 
 The **AUTO** button on the dashboard switches light + fan between:
@@ -48,6 +82,32 @@ The **AUTO** button on the dashboard switches light + fan between:
 
 Precedence is **safety > manual > auto** — an active emergency always drives the
 actuators regardless of mode, and manual setpoints resume once it clears.
+
+The **door** is controlled independently of that toggle, matching the spec: the
+AI planner only sets it while *Resting* (locked) and in critical states
+(unlocked); when the patient is *Awake* the door is manual — press and **hold
+the lock button for 0.5 s** to toggle it. Outside an emergency, a door left
+unlocked for **60 s** auto-locks. During an emergency the door is forced
+unlocked and the lock toggle is disabled.
+
+## AI planner behaviour
+
+The planner re-plans whenever the room/patient state changes and emits a plan of
+`set-…` actions. Goals are **partial** — an actuator the planner doesn't own in a
+given state (e.g. the door while Awake) is left untouched. Summary:
+
+| State | Light | Fan | Door | Buzzer | Red LED |
+| --- | --- | --- | --- | --- | --- |
+| Hazardous / Emergency / Distress | 100 % | — | unlock | high | solid on |
+| Out-of-bed | — | — | — | low (after 15 min) | blink |
+| Resting | off | auto (DHT) | lock | off | off |
+| Awake | auto (sunlight) or manual | auto (DHT) or manual | manual | off | off |
+
+`PLANNER_MODE` selects the solver: `online` (Planning.Domains), `local` (Fast
+Downward), or `offline` (a built-in solver, no internet). In `online` mode, if
+the service is unreachable — common while the Pi hosts its own hotspot — it
+automatically falls back to the offline planner (`PLANNER_FALLBACK_OFFLINE=1`),
+so the system keeps working with no internet.
 
 ## Emergencies (how to demonstrate each)
 

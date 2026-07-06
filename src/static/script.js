@@ -94,12 +94,15 @@ const lightSlider = document.getElementById('lightSlider');
 const fanSlider = document.getElementById('fanSlider');
 const emergencyOverlay = document.getElementById('emergencyOverlay');
 const medEmergencyBtn = document.getElementById('medEmergencyBtn');
+const sosEmergencyBtn = document.getElementById('sosEmergencyBtn');
 const autoBtn = document.getElementById('autoBtn');
 
 // Timestamps of the last user slider drag, so the 1 s /data refresh does not
 // yank a slider out from under a finger that is currently adjusting it.
 const userAdjust = { light: 0, fan: 0 };
 let manualMode = false;
+let doorLocked = true;      // last known door state (for the lock toggle)
+let lockEnabled = true;     // false during an emergency (door forced unlocked)
 
 function renderVitals(data) {
     if (heartRateEl) heartRateEl.textContent = data.heart_rate != null ? data.heart_rate : '--';
@@ -122,10 +125,16 @@ function renderControls(data) {
     if (lightSlider) lightSlider.disabled = !controllable;
     if (fanSlider) fanSlider.disabled = !controllable;
 
+    // Door: manual lock/unlock is available any time except during an
+    // emergency, when it is forced unlocked and the toggle is disabled.
+    doorLocked = act.door !== 'unlocked';
+    lockEnabled = !emergencyActive;
     if (lockBtn) {
-        lockBtn.src = act.door === 'unlocked'
-            ? '/static/assets/Unlocked_Button.png'
-            : '/static/assets/Locked_Button.png';
+        lockBtn.src = doorLocked
+            ? '/static/assets/Locked_Button.png'
+            : '/static/assets/Unlocked_Button.png';
+        lockBtn.style.opacity = lockEnabled ? '1' : '0.5';
+        lockBtn.style.cursor = lockEnabled ? 'pointer' : 'not-allowed';
     }
 
     const now = Date.now();
@@ -221,10 +230,16 @@ function renderEmergency(data) {
 }
 
 function renderMedButton(toggles) {
-    if (!medEmergencyBtn) return;
-    const on = !!(toggles && toggles.vitals_emergency);
-    medEmergencyBtn.classList.toggle('active', on);
-    medEmergencyBtn.textContent = on ? 'Clear Medical Emergency' : 'Simulate Medical Emergency';
+    if (medEmergencyBtn) {
+        const on = !!(toggles && toggles.vitals_emergency);
+        medEmergencyBtn.classList.toggle('active', on);
+        medEmergencyBtn.textContent = on ? 'Clear Medical Emergency' : 'Simulate Medical Emergency';
+    }
+    if (sosEmergencyBtn) {
+        const on = !!(toggles && toggles.sos_emergency);
+        sosEmergencyBtn.classList.toggle('active', on);
+        sosEmergencyBtn.textContent = on ? 'Clear SOS Emergency' : 'Trigger SOS Emergency';
+    }
 }
 
 const planGoal = document.getElementById('planGoal');
@@ -297,6 +312,63 @@ async function refresh() {
 setInterval(refresh, 1000);
 refresh();
 
+// --- Door lock/unlock (press and hold 0.5 s) --------------------------------
+const lockProgressFill = document.getElementById('lockProgressFill');
+const LOCK_HOLD_MS = 500;
+const LOCK_MAX_OFFSET = 234.3;
+let lockRaf = null;
+let lockStart = 0;
+
+function lockProgressStep() {
+    const progress = Math.min((Date.now() - lockStart) / LOCK_HOLD_MS, 1);
+    if (lockProgressFill) lockProgressFill.style.strokeDashoffset = LOCK_MAX_OFFSET * (1 - progress);
+    if (progress >= 1) {
+        toggleDoor();
+        resetLockProgress();
+    } else {
+        lockRaf = requestAnimationFrame(lockProgressStep);
+    }
+}
+
+function startLockHold(e) {
+    if (!lockEnabled) return;                 // disabled during an emergency
+    if (e.type === 'touchstart') e.preventDefault();
+    if (lockBtn) lockBtn.style.transform = 'scale(0.95)';
+    lockStart = Date.now();
+    lockProgressStep();
+}
+
+function resetLockProgress() {
+    if (lockRaf) { cancelAnimationFrame(lockRaf); lockRaf = null; }
+    if (lockBtn) lockBtn.style.transform = 'scale(1)';
+    if (lockProgressFill) lockProgressFill.style.strokeDashoffset = LOCK_MAX_OFFSET;
+}
+
+function toggleDoor() {
+    const value = doorLocked ? 'unlocked' : 'locked';
+    doorLocked = !doorLocked;                 // optimistic; /data confirms
+    if (lockBtn) {
+        lockBtn.src = doorLocked
+            ? '/static/assets/Locked_Button.png'
+            : '/static/assets/Unlocked_Button.png';
+    }
+    fetch('/api/manual/door', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value }),
+    }).then(() => refresh()).catch(err => console.log('door toggle failed:', err));
+}
+
+if (lockBtn) {
+    lockBtn.style.transition = 'transform 0.2s';
+    lockBtn.addEventListener('mousedown', startLockHold);
+    lockBtn.addEventListener('mouseup', resetLockProgress);
+    lockBtn.addEventListener('mouseleave', resetLockProgress);
+    lockBtn.addEventListener('touchstart', startLockHold, { passive: false });
+    lockBtn.addEventListener('touchend', resetLockProgress);
+    lockBtn.addEventListener('touchcancel', resetLockProgress);
+}
+
 // --- Manual / auto control interactions -------------------------------------
 const lastPost = { light: 0, fan: 0 };
 
@@ -341,22 +413,23 @@ if (autoBtn) {
     });
 }
 
-// --- Medical emergency toggle -----------------------------------------------
-if (medEmergencyBtn) {
-    medEmergencyBtn.addEventListener('click', async () => {
-        medEmergencyBtn.disabled = true;
+// --- Emergency simulation toggles -------------------------------------------
+function wireEmergencyButton(btn, endpoint) {
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        btn.disabled = true;
         try {
-            const res = await fetch('/api/emergency/vitals/toggle', { method: 'POST' });
-            const body = await res.json();
-            renderMedButton({ vitals_emergency: body.vitals_emergency });
+            await fetch(endpoint, { method: 'POST' });
         } catch (err) {
-            console.log('medical emergency toggle failed:', err);
+            console.log('emergency toggle failed:', err);
         } finally {
-            medEmergencyBtn.disabled = false;
+            btn.disabled = false;
             refresh();
         }
     });
 }
+wireEmergencyButton(medEmergencyBtn, '/api/emergency/vitals/toggle');
+wireEmergencyButton(sosEmergencyBtn, '/api/emergency/sos/toggle');
 
 // --- Auto full-screen -------------------------------------------------------
 // Browsers only allow fullscreen from a user gesture, so we try immediately

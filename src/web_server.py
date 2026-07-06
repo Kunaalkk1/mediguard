@@ -99,6 +99,20 @@ def manual_fan():
     return jsonify({"fan": value})
 
 
+@app.route("/api/manual/door", methods=["POST"])
+def manual_door():
+    """Manual lock/unlock from the dashboard. Ignored during an emergency
+    (the bridge keeps the door unlocked for access)."""
+    body = request.get_json(silent=True) or {}
+    value = str(body.get("value", "")).strip().lower()
+    if value not in {"lock", "locked", "0", "unlock", "unlocked", "1"}:
+        return jsonify({"error": "value must be locked or unlocked"}), 400
+    if _bridge is not None:
+        _bridge.set_door(value)
+        return jsonify({"door": _bridge.get_actuator_state().get("door")})
+    return jsonify({"door": None})
+
+
 @app.route("/api/emergency/vitals/toggle", methods=["POST"])
 def toggle_vitals_emergency():
     """Stand-in for the removed SpO2 sensor: flip the medical-emergency state."""

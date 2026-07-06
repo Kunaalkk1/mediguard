@@ -67,9 +67,13 @@
                     </div>
                     <!-- Stand-in for the removed physical SpO2 sensor: a real
                          distress reading can't be produced safely on the bench,
-                         so staff can inject one from here for the demo. -->
+                         so staff can inject one from here for the demo. The SOS
+                         button mirrors the physical SOS button for demos. -->
                     <button class="med-emergency-btn" id="medEmergencyBtn">
                         Simulate Medical Emergency
+                    </button>
+                    <button class="med-emergency-btn sos-emergency-btn" id="sosEmergencyBtn">
+                        Trigger SOS Emergency
                     </button>
                 </div>
 
@@ -164,8 +168,19 @@
                             <span class="env-value" id="humidityValue">--%</span>
                         </div>
                         <div class="door-lock">
-                            <img id="lockBtn" src="/static/assets/Locked_Button.png" alt="Door state"
-                                style="height: 2.5rem; width: 5.5rem; object-fit: contain;">
+                            <div class="lock-toggle" id="lockToggle"
+                                style="position: relative; background: transparent; padding: 0; width: 6rem; height: 3rem; display: flex; align-items: center; justify-content: center;">
+                                <svg class="lock-progress" width="100%" height="100%" viewBox="0 0 96 48"
+                                    style="position: absolute; top: 0; left: 0; pointer-events: none;">
+                                    <rect x="2" y="2" width="92" height="44" rx="22" fill="none"
+                                        stroke="rgba(60, 167, 179, 0.2)" stroke-width="4"></rect>
+                                    <rect id="lockProgressFill" x="2" y="2" width="92" height="44" rx="22" fill="none"
+                                        stroke="var(--accent-teal)" stroke-width="4" stroke-dasharray="234.3"
+                                        stroke-dashoffset="234.3" stroke-linecap="round"></rect>
+                                </svg>
+                                <img id="lockBtn" src="/static/assets/Locked_Button.png" alt="Lock Toggle"
+                                    style="height: 2.5rem; width: 5.5rem; cursor: pointer; object-fit: contain; position: relative; z-index: 2;">
+                            </div>
                         </div>
                     </div>
 

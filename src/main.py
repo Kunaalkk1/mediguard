@@ -50,6 +50,9 @@ import hotspot
 DISTRESS_PULSE = 145
 DISTRESS_SPO2 = 84
 
+# Auto-lock the door if it is left unlocked (outside an emergency) this long.
+DOOR_AUTOLOCK_SECONDS = 60
+
 snapshot_queue = queue.Queue(maxsize=5)
 stop_flag = threading.Event()
 bridge = mqtt_bridge.MediGuardMqttBridge()
@@ -66,6 +69,26 @@ class OutOfBedTimer:
         if self._started_at is None:
             self._started_at = now
         return int((now - self._started_at) // 60)
+
+
+class DoorAutoLock:
+    """Lock the door after it has been unlocked for DOOR_AUTOLOCK_SECONDS, unless
+    an emergency is active (then it stays unlocked for access)."""
+
+    def __init__(self):
+        self._unlocked_since = None
+
+    def check(self, emergency_active: bool, now: float):
+        door = bridge.get_actuator_state().get("door")
+        if emergency_active or door != "unlocked":
+            self._unlocked_since = None
+            return
+        if self._unlocked_since is None:
+            self._unlocked_since = now
+        elif now - self._unlocked_since >= DOOR_AUTOLOCK_SECONDS:
+            print(f"[auto-lock] door unlocked > {DOOR_AUTOLOCK_SECONDS}s; locking")
+            bridge.set_door("locked")
+            self._unlocked_since = None
 
 
 def sos_watcher():
@@ -171,6 +194,7 @@ def describe_emergency(room: dict, patient_state: str) -> dict:
 def brain_worker():
     tracker = PatientStateTracker()
     out_of_bed_timer = OutOfBedTimer()
+    door_auto_lock = DoorAutoLock()
 
     while not stop_flag.is_set():
         try:
@@ -211,6 +235,9 @@ def brain_worker():
             else:
                 bridge.set_light_fan(bridge.auto_light, bridge.auto_fan)
 
+            emergency = describe_emergency(room, patient_state)
+            door_auto_lock.check(emergency["active"], time.time())
+
             shared_state.merge({
                 "heart_rate": snap.get("pulse"),
                 "spo2": snap.get("spo2"),
@@ -225,7 +252,7 @@ def brain_worker():
                 # Boolean observation facts exactly as the PDDL problem sees
                 # them (see AI_pddl_planner_service.observation_predicates).
                 "sensor_summary": planner_state["sensor_summary"],
-                "emergency": describe_emergency(room, patient_state),
+                "emergency": emergency,
                 "updated_at": time.time(),
             })
 
