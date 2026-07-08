@@ -220,6 +220,53 @@ function renderFacts(data) {
     ).join('');
 }
 
+// --- Raw sensor data (ADC counts + volts, digital pins, other sensors) ------
+const rawSensorsEl = document.getElementById('rawSensors');
+
+function adcRow(ch) {
+    const counts = ch.counts != null ? ch.counts : '--';
+    const volts = ch.volts != null ? `${ch.volts.toFixed(3)} V` : '-- V';
+    return `<div class="raw-row adc-row">` +
+        `<span class="raw-chan">${ch.channel}</span>` +
+        `<span class="raw-name">${ch.sensor}</span>` +
+        `<span class="raw-counts">${counts}</span>` +
+        `<span class="raw-volts">${volts}</span></div>`;
+}
+
+function digitalRow(d) {
+    const on = !!d.value;
+    return `<div class="raw-row dig-row">` +
+        `<span class="raw-chan">${d.pin}</span>` +
+        `<span class="raw-name">${d.sensor}</span>` +
+        `<span class="raw-val">${on ? 'HIGH (1)' : 'LOW (0)'}</span></div>`;
+}
+
+function otherRow(o) {
+    const value = o.value != null ? o.value : '--';
+    const unit = o.unit ? ` <span class="raw-unit">${o.unit}</span>` : '';
+    return `<div class="raw-row"><span class="raw-name">${o.sensor}</span>` +
+        `<span class="raw-val">${value}${unit}</span></div>`;
+}
+
+function renderRawSensors(data) {
+    if (!rawSensorsEl) return;
+    const raw = data.raw_sensors || {};
+    const ref = raw.adc_ref || {};
+    const adc = raw.adc || [];
+    const digital = raw.digital || [];
+    const other = raw.other || [];
+
+    const adcHead = `Analog ADC · ${ref.bits || 10}-bit · 0–${ref.max || 1023} @ ${ref.vref != null ? ref.vref : 5} V`;
+    rawSensorsEl.innerHTML =
+        `<div class="raw-subhead">${adcHead}` +
+        `<span class="raw-cols"><span>raw</span><span>volts</span></span></div>` +
+        adc.map(adcRow).join('') +
+        `<div class="raw-subhead">Digital pins</div>` +
+        digital.map(digitalRow).join('') +
+        `<div class="raw-subhead">Other (I²C · DHT · virtual)</div>` +
+        other.map(otherRow).join('');
+}
+
 function renderEmergency(data) {
     const emergency = data.emergency || { active: false };
     const active = !!emergency.active;
@@ -294,6 +341,7 @@ async function refresh() {
         const data = await res.json();
         renderVitals(data);
         renderControls(data);
+        renderRawSensors(data);
         renderFacts(data);
         renderEmergency(data);
         renderMedButton(data.toggles);

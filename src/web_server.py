@@ -31,8 +31,8 @@ def _apply_light_fan():
                               runtime_flags.manual_fan.get())
 
 # Bind to all interfaces so the dashboard is reachable both locally on the Pi
-# (http://localhost:7801) and from a phone joined to the Pi's hotspot
-# (http://<pi-ip>:7801). Set MEDIGUARD_HOST=127.0.0.1 to restrict to localhost.
+# (http://localhost:7801) and from any device on the same network
+# (http://mediguard.local:7801). Set MEDIGUARD_HOST=127.0.0.1 for localhost only.
 HOST = os.getenv("MEDIGUARD_HOST", "0.0.0.0")
 PORT = int(os.getenv("MEDIGUARD_PORT", "7801"))
 

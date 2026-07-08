@@ -270,24 +270,20 @@ body.emergency-active {
     font-weight: 500;
 }
 
-/* Scheduled Appointments (Left 3) */
-.scheduled-appointments {
+/* Raw Sensor Data (Left 3) */
+.raw-sensors {
     flex: 26;
     overflow: hidden;
     padding: 0.9375rem 1.25rem;
+    display: flex;
+    flex-direction: column;
 }
 
-.schedule-header {
+.raw-header {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 0.3125rem;
-}
-
-.table-wrapper {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
+    margin-bottom: 0.5rem;
 }
 
 .realtime-clock {
@@ -304,41 +300,111 @@ body.emergency-active {
     margin-top: 0.3125rem;
 }
 
-.schedule-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.8125rem;
+.raw-sensor-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
     flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
-.schedule-table th,
-.schedule-table td {
-    padding: 0.5rem 0.25rem;
-    text-align: left;
-}
-
-.schedule-table th {
-    border-bottom: 1px solid #E2E8F0;
+.raw-subhead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 0.6875rem;
     font-weight: 700;
-    position: sticky;
-    top: 0;
-    background: var(--card-bg);
-    z-index: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent-teal);
+    border-bottom: 1px solid #E2E8F0;
+    padding-bottom: 0.15rem;
+    margin-top: 0.55rem;
+    margin-bottom: 0.15rem;
 }
 
-.schedule-table th:nth-child(1),
-.schedule-table td:nth-child(1) {
-    width: 30%;
+.raw-subhead:first-child {
+    margin-top: 0;
 }
 
-.schedule-table th:nth-child(2),
-.schedule-table td:nth-child(2) {
-    width: 30%;
+.raw-cols {
+    display: flex;
+    gap: 1rem;
+    color: var(--muted-gray);
 }
 
-.schedule-table th:nth-child(3),
-.schedule-table td:nth-child(3) {
-    width: 40%;
+.raw-cols span {
+    width: 3.4rem;
+    text-align: right;
+}
+
+.raw-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.2rem 0;
+    border-bottom: 1px solid #EEF3F4;
+}
+
+/* Analog channel: [port] [sensor] [raw count] [volts] */
+.adc-row {
+    display: grid;
+    grid-template-columns: 2.2rem 1fr 3.4rem 3.4rem;
+    gap: 0.5rem;
+    align-items: baseline;
+}
+
+/* Digital pin: [pin] [sensor] [level] */
+.dig-row {
+    display: grid;
+    grid-template-columns: 2.2rem 1fr auto;
+    gap: 0.5rem;
+    align-items: baseline;
+}
+
+.raw-chan {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--muted-gray);
+}
+
+.raw-name {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-navy);
+}
+
+.raw-counts {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: var(--text-navy);
+    text-align: right;
+}
+
+.raw-volts {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent-teal);
+    text-align: right;
+}
+
+.raw-val {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent-teal);
+    white-space: nowrap;
+    text-align: right;
+}
+
+.raw-unit {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--muted-gray);
 }
 
 /* Environment Controls (Middle 1) */

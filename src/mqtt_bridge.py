@@ -49,6 +49,9 @@ class MediGuardMqttBridge:
         self._light_percent = None
         self._fan_percent = None
         self._door_state = "locked"
+        # True when the door's current unlocked state came from a manual command
+        # (dashboard), as opposed to the AI planner or a safety profile.
+        self._door_manual_unlock = False
         # Latest light/fan the planner asked for, re-applied when leaving manual.
         self._auto_light = 0
         self._auto_fan = 0
@@ -267,7 +270,7 @@ class MediGuardMqttBridge:
         print(f"[ACTUATOR STATE] fan={percent}% -> {closed_state}")
         self._publish_actuator_state()
 
-    def _apply_door(self, value: str):
+    def _apply_door(self, value: str, manual: bool = False):
         # 0 = locked; 1 = unlocked. Relay polarity is hidden in lock.py.
         if value in {"0", "lock", "locked"}:
             target = "locked"
@@ -275,6 +278,11 @@ class MediGuardMqttBridge:
             target = "unlocked"
         else:
             raise ValueError("door must be 0/locked or 1/unlocked")
+
+        # Record who owns the current unlock (manual person vs AI/safety), so
+        # the auto-lock timer only applies to a door a person opened. Updated
+        # even on a no-op so the latest command's source always wins.
+        self._door_manual_unlock = manual and target == "unlocked"
 
         if target == self._door_state:
             return
@@ -284,15 +292,20 @@ class MediGuardMqttBridge:
             door_lock.lock() if target == "locked" else door_lock.unlock()
         with self._command_lock:
             self._actuator_state["door"] = target
-        print(f"[ACTUATOR STATE] door -> {target.upper()} = door-{target}")
+        print(f"[ACTUATOR STATE] door -> {target.upper()} = door-{target}"
+              f"{' (manual)' if manual else ''}")
         self._publish_actuator_state()
 
+    @property
+    def door_unlocked_by_manual(self) -> bool:
+        return self._door_manual_unlock
+
     def set_door(self, value: str):
-        """Public door control (manual lock/unlock, auto-lock). Blocked while a
-        safety profile holds the door unlocked for emergency access."""
+        """Public MANUAL door control (dashboard lock/unlock, auto-lock). Blocked
+        while a safety profile holds the door unlocked for emergency access."""
         if self.safety_override_active:
             return
-        self._apply_door(value)
+        self._apply_door(value, manual=True)
 
     def _set_buzzer_mode(self, value: str):
         aliases = {

@@ -10,6 +10,19 @@ SOS_PORT      = 7     # digital D7 -- Grove button (SOS)
 
 PRESSURE_THRESHOLD = 400   # raw value above this = someone on the bed  # TUNE ON PI
 
+# GrovePi on-board ADC: 10-bit (0-1023 counts) referenced to the 5 V rail, so a
+# raw count maps to a voltage of  counts / 1023 * 5.0.
+ADC_BITS = 10
+ADC_MAX = (1 << ADC_BITS) - 1     # 1023
+ADC_VREF = 5.0                    # volts
+
+
+def counts_to_volts(counts):
+    """Convert a raw 0-1023 ADC count to volts (None-safe)."""
+    if counts is None:
+        return None
+    return round(counts / ADC_MAX * ADC_VREF, 3)
+
 # The Grove Button reads HIGH (1) when pressed. Flip this if the button is wired
 # with a pull-up (reads LOW when pressed).
 SOS_ACTIVE_HIGH = True

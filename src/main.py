@@ -21,12 +21,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 for _sub in ("sensors", "logic", "utils", "actuators"):
     sys.path.insert(0, os.path.join(HERE, _sub))
 
-# Load .env before importing modules that read config at import time (web_server
-# reads the dashboard host/port, hotspot reads the AP settings).
+# Load .env before importing modules that read config at import time
+# (web_server reads the dashboard host/port).
 from dotenv import load_dotenv
 load_dotenv()
 
-USE_SIMULATOR = True
+import netinfo
+
+USE_SIMULATOR = False
 
 if USE_SIMULATOR:
     from sensors.simulator import read_all
@@ -34,6 +36,7 @@ else:
     from sensors.reader import read_all
 
 from logic.classify import build_planner_state, active_safety_profile
+from sensors.grove_sensors import ADC_BITS, ADC_MAX, ADC_VREF, counts_to_volts
 from logic.room_state import assess, EMERGENCY, HAZARDOUS
 from logic.patient_state import PatientStateTracker, DISTRESS
 from utils.i2c_semaphore import i2c_lock
@@ -42,7 +45,6 @@ import shared_state
 import web_server
 from web_server import run_server
 import mqtt_bridge
-import hotspot
 
 # Vital-sign values injected when the dashboard's medical-emergency toggle is
 # on. They sit outside the safe pulse/SpO2 ranges so the patient tracker
@@ -50,8 +52,9 @@ import hotspot
 DISTRESS_PULSE = 145
 DISTRESS_SPO2 = 84
 
-# Auto-lock the door if it is left unlocked (outside an emergency) this long.
-DOOR_AUTOLOCK_SECONDS = 60
+# Auto-lock the door if a MANUAL unlock is left this long (never auto-locks a
+# door the AI/safety unlocked, e.g. during an emergency).
+DOOR_AUTOLOCK_SECONDS = 15
 
 snapshot_queue = queue.Queue(maxsize=5)
 stop_flag = threading.Event()
@@ -72,21 +75,23 @@ class OutOfBedTimer:
 
 
 class DoorAutoLock:
-    """Lock the door after it has been unlocked for DOOR_AUTOLOCK_SECONDS, unless
-    an emergency is active (then it stays unlocked for access)."""
+    """Lock the door after it has been MANUALLY unlocked for DOOR_AUTOLOCK_SECONDS.
+    A door the AI/safety unlocked (e.g. during an emergency) is never auto-locked
+    by this timer -- only a person's manual unlock is."""
 
     def __init__(self):
         self._unlocked_since = None
 
     def check(self, emergency_active: bool, now: float):
         door = bridge.get_actuator_state().get("door")
-        if emergency_active or door != "unlocked":
+        manual = bridge.door_unlocked_by_manual
+        if emergency_active or door != "unlocked" or not manual:
             self._unlocked_since = None
             return
         if self._unlocked_since is None:
             self._unlocked_since = now
         elif now - self._unlocked_since >= DOOR_AUTOLOCK_SECONDS:
-            print(f"[auto-lock] door unlocked > {DOOR_AUTOLOCK_SECONDS}s; locking")
+            print(f"[auto-lock] manual unlock idle > {DOOR_AUTOLOCK_SECONDS}s; locking")
             bridge.set_door("locked")
             self._unlocked_since = None
 
@@ -193,6 +198,39 @@ def apply_manual_overrides(snap: dict) -> dict:
     return snap
 
 
+def build_raw_sensors(snap: dict) -> dict:
+    """Structured raw sensor view for the dashboard's RAW SENSOR DATA card.
+
+    The three analog sensors are GrovePi ADC channels, so we surface both the
+    raw 10-bit count and the derived voltage. The rest are digital pins (PIR,
+    SOS button) or I2C/DHT/virtual sensors that don't go through the ADC.
+    """
+    light = snap.get("light")
+    pressure = snap.get("pressure_raw")
+    gas = snap.get("gas")
+    return {
+        "adc_ref": {"bits": ADC_BITS, "max": ADC_MAX, "vref": ADC_VREF},
+        "adc": [
+            {"channel": "A0", "sensor": "Light (Grove)",  "counts": light,
+             "volts": counts_to_volts(light)},
+            {"channel": "A1", "sensor": "Pressure (FSR)", "counts": pressure,
+             "volts": counts_to_volts(pressure)},
+            {"channel": "A2", "sensor": "Gas (MQ135)",    "counts": gas,
+             "volts": counts_to_volts(gas)},
+        ],
+        "digital": [
+            {"pin": "D2", "sensor": "PIR motion", "value": bool(snap.get("motion"))},
+            {"pin": "D7", "sensor": "SOS button", "value": bool(snap.get("sos"))},
+        ],
+        "other": [
+            {"sensor": "Temperature (DHT)", "value": snap.get("temperature"), "unit": "°C"},
+            {"sensor": "Humidity (DHT)",    "value": snap.get("humidity"),    "unit": "%"},
+            {"sensor": "Pulse (virtual)",   "value": snap.get("pulse"),       "unit": "BPM"},
+            {"sensor": "SpO₂ (virtual)", "value": snap.get("spo2"),      "unit": "%"},
+        ],
+    }
+
+
 def describe_emergency(room: dict, patient_state: str) -> dict:
     """Single emergency descriptor for the dashboard banner/overlay."""
     if room["label"] == EMERGENCY:
@@ -252,6 +290,10 @@ def brain_worker():
             door_auto_lock.check(emergency["active"], time.time())
 
             shared_state.merge({
+                # Raw, unprocessed sensor snapshot for the dashboard's
+                # "RAW SENSOR DATA" card: ADC counts + volts per channel,
+                # digital pins, and the non-ADC sensors.
+                "raw_sensors": build_raw_sensors(snap),
                 "heart_rate": snap.get("pulse"),
                 "spo2": snap.get("spo2"),
                 "temperature": snap.get("temperature"),
@@ -282,11 +324,12 @@ def brain_worker():
 
 if __name__ == "__main__":
     print(f"Starting MediGuard with MQTT/PDDL integration (USE_SIMULATOR={USE_SIMULATOR})")
-    print("Dashboard will be served on http://localhost:7801")
-    print("Running... press Ctrl+C to stop.\n")
 
-    # Bring up the Wi-Fi hotspot first (if enabled) so a phone can join early.
-    hotspot.start_hotspot()
+    # The Pi joins whatever network you put it on; the dashboard binds 0.0.0.0
+    # (see web_server.py) so it's reachable from any device on that network.
+    # scripts/pi_setup.sh sets the hostname so mediguard.local resolves via mDNS.
+    netinfo.print_access_banner(int(os.getenv("MEDIGUARD_PORT", "7801")))
+    print("Running... press Ctrl+C to stop.\n")
 
     try:
         bridge.start()

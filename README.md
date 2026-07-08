@@ -105,9 +105,8 @@ given state (e.g. the door while Awake) is left untouched. Summary:
 
 `PLANNER_MODE` selects the solver: `online` (Planning.Domains), `local` (Fast
 Downward), or `offline` (a built-in solver, no internet). In `online` mode, if
-the service is unreachable — common while the Pi hosts its own hotspot — it
-automatically falls back to the offline planner (`PLANNER_FALLBACK_OFFLINE=1`),
-so the system keeps working with no internet.
+the service is unreachable it automatically falls back to the offline planner
+(`PLANNER_FALLBACK_OFFLINE=1`), so the system keeps working with no internet.
 
 ## Emergencies (how to demonstrate each)
 
@@ -144,8 +143,8 @@ safety behaviour work regardless.
 | `BROKER_HOST` / `BROKER_PORT` | `127.0.0.1` / `1883` | MQTT broker |
 | `ROOM_ID` | `room101` | Room identifier used in MQTT topics |
 | `PLANNER_MODE` | `online` | `online` (Planning.Domains) or `local` (Fast Downward) |
-| `MEDIGUARD_HOST` | `0.0.0.0` | Dashboard bind address (`0.0.0.0` = reachable over the hotspot; `127.0.0.1` = localhost only) |
-| `MEDIGUARD_PORT` | `7801` | Dashboard port |
+| `MEDIGUARD_HOST` | `0.0.0.0` | Dashboard bind address (`0.0.0.0` = reachable on the LAN / via `mediguard.local`; `127.0.0.1` = localhost only) |
+| `MEDIGUARD_PORT` | `7801` | Dashboard port (set to `80` to drop the `:7801`, but that needs sudo on the Pi) |
 
 ## Deploy on the Raspberry Pi
 
@@ -166,54 +165,61 @@ sudo systemctl enable --now mosquitto
 #    edit src/main.py  ->  USE_SIMULATOR = False
 
 # 4. Run the two processes (separate terminals, tmux, or systemd units).
-#    Use sudo so main.py can start the Wi-Fi hotspot (see below).
-python3 src/AI_pddl_planner_service.py     # terminal A
-sudo -E python3 src/main.py                 # terminal B  (-E keeps the venv/env)
+python3 src/AI_pddl_planner_service.py      # terminal A
+python3 src/main.py                         # terminal B
 ```
 
-The dashboard is now live on the Pi at **http://localhost:7801** (and on
-`http://<pi-ip>:7801` for any device on the same network).
+The dashboard is now live on the Pi at **http://localhost:7801** (and at
+**http://mediguard.local:7801** for any device on the same network — see
+[Networking](#networking-mediguardlocal-no-hotspot) below).
 
-### Wi-Fi hotspot (started automatically by main.py)
+### Networking: `mediguard.local` (no hotspot)
 
-With `MEDIGUARD_HOTSPOT=1` in `.env` (the default), `main.py` brings up the
-access point itself at launch via NetworkManager — no manual steps. It needs
-root, so run it with `sudo`. Configure it in `.env`:
-
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `MEDIGUARD_HOTSPOT` | `1` | `1` = start an AP at launch; `0` = don't |
-| `MEDIGUARD_HOTSPOT_SSID` | `MediGuard` | network name |
-| `MEDIGUARD_HOTSPOT_PASSWORD` | `mediguard123` | WPA password |
-| `MEDIGUARD_HOTSPOT_IFACE` | `wlan0` | wireless interface |
-
-On startup the log prints the AP's address (NetworkManager uses `10.42.0.1`).
-It is best-effort: on a non-Pi machine, without `nmcli`, or without root it just
-logs a warning and continues. To do it by hand instead:
+MediGuard no longer runs its own Wi-Fi access point. Put the Pi on your normal
+Wi-Fi or Ethernet, and the dashboard (bound to `0.0.0.0`) is reachable from any
+device on that same network. To reach it by name instead of a changing IP, run
+the one-time setup once on the Pi:
 
 ```bash
-sudo nmcli device wifi hotspot ssid MediGuard password "mediguard123" ifname wlan0
-nmcli -g IP4.ADDRESS device show wlan0     # shows the AP IP (10.42.0.1)
+sudo bash scripts/pi_setup.sh      # sets hostname + mDNS + RealVNC, then: sudo reboot
 ```
 
-To make the hotspot start automatically on every boot via NetworkManager itself:
+That script sets the Pi's hostname to `mediguard` and enables `avahi-daemon`
+(mDNS/Bonjour), so `mediguard.local` resolves for every phone/PC on the LAN.
+After it runs, open the dashboard from any device:
+
+- **http://mediguard.local:7801**
+
+`main.py` prints this URL (plus the raw LAN IP as a fallback) at startup. To
+drop the `:7801` and open just **http://mediguard.local**, set `MEDIGUARD_PORT=80`
+in `.env` and run `main.py` with `sudo` (binding port 80 needs root on the Pi).
+
+> mDNS works out of the box on Android, iOS and macOS. On Windows it needs the
+> built-in mDNS (Windows 10/11 have it) or Apple's Bonjour; if `.local` won't
+> resolve there, use the LAN IP the startup banner prints.
+
+### Remote desktop — view the Pi's screen from a PC/Android (RealVNC)
+
+`scripts/pi_setup.sh` also enables **RealVNC**, the remote-desktop server that
+ships with Raspberry Pi OS, so you can see and control the Pi's GUI from another
+machine:
+
+1. Install the free **RealVNC Viewer** on your PC or Android device.
+2. Connect it to **`mediguard.local`** (or the Pi's IP).
+3. Log in with the Pi's username/password — you get the full desktop.
+
+The Pi's terminal is separately available over SSH at `ssh pi@mediguard.local`.
+For an untrusted network you can tunnel VNC through SSH so it's encrypted and
+no VNC port is exposed:
 
 ```bash
-sudo nmcli connection add type wifi ifname wlan0 con-name MediGuardAP autoconnect yes ssid MediGuard
-sudo nmcli connection modify MediGuardAP 802-11-wireless.mode ap ipv4.method shared \
-     wifi-sec.key-mgmt wpa-psk wifi-sec.psk "mediguard123"
-sudo nmcli connection up MediGuardAP
+# On your PC: forward local port 5901 to the Pi's VNC server over SSH,
+ssh -L 5901:localhost:5900 pi@mediguard.local
+# then point RealVNC Viewer at  localhost:5901
 ```
 
-Then on your phone:
-
-1. Join the Wi-Fi network **MediGuard** (password `mediguard123`).
-2. Open a browser to **http://10.42.0.1:7801** (use the IP printed above).
-3. Tap once — the dashboard requests full-screen on the first interaction.
-
-> The Pi's single Wi-Fi radio can either host the hotspot **or** be a Wi-Fi
-> client, not both at once. Use the Ethernet port if the Pi also needs internet
-> (e.g. for the online planner).
+To enable VNC/SSH by hand instead of the script: `sudo raspi-config` →
+*Interface Options* → *VNC* / *SSH* → enable.
 
 ### Full-screen / kiosk
 

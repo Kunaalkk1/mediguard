@@ -88,67 +88,14 @@
                     </div>
                 </div>
 
-                <div class="card scheduled-appointments">
-                    <div class="schedule-header">
+                <div class="card raw-sensors">
+                    <div class="raw-header">
                         <div class="realtime-clock" id="realtimeClock">Loading time...</div>
-                        <h2 class="card-title" style="margin-top: 5px; margin-bottom: 2px;">Scheduled Appointments</h2>
-                        <div class="disclaimer" style="margin-top: 0;">NOTE: Appointments are subject to change based on
-                            patient status, staff availability, or other unforeseen circumstances. The below schedule
-                            will be updated accordingly.</div>
+                        <h2 class="card-title" style="margin-top: 5px; margin-bottom: 2px;">Raw Sensor Data</h2>
+                        <div class="disclaimer" style="margin-top: 0;">Live unprocessed readings straight from the
+                            sensors, before any bucketing or classification.</div>
                     </div>
-                    <div class="table-wrapper">
-                        <table class="schedule-table">
-                            <thead>
-                                <tr>
-                                    <th>Date/Time</th>
-                                    <th>Staff</th>
-                                    <th>Procedure</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>24/07 18:30</td>
-                                    <td>On-call nurse</td>
-                                    <td>Pre-op Blood test</td>
-                                </tr>
-                                <tr>
-                                    <td>24/07 20:00</td>
-                                    <td>Dr. Klein</td>
-                                    <td>Pre-op Ultrasound</td>
-                                </tr>
-                                <tr>
-                                    <td>25/07 09:00</td>
-                                    <td>On-call nurse</td>
-                                    <td>Pre-op Medical Exam</td>
-                                </tr>
-                                <tr>
-                                    <td>25/07 11:00</td>
-                                    <td>Dr. Schmidt</td>
-                                    <td>Laparoscopic Cholecystectomy</td>
-                                </tr>
-                                <tr>
-                                    <td>25/07 15:00</td>
-                                    <td>Dr. Klein</td>
-                                    <td>Post-op Ultrasound</td>
-                                </tr>
-                                <tr>
-                                    <td>25/07 17:30</td>
-                                    <td>Dr. Klein</td>
-                                    <td>Post-op Medical Exam</td>
-                                </tr>
-                                <tr>
-                                    <td>25/07 18:00</td>
-                                    <td>Dr. Klein</td>
-                                    <td>Instructions and Medication</td>
-                                </tr>
-                                <tr>
-                                    <td>26/07 09:00</td>
-                                    <td>Dr. Schmidt</td>
-                                    <td>Final Check-up, Discharge</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <div class="raw-sensor-list" id="rawSensors"></div>
                 </div>
             </div>
 
