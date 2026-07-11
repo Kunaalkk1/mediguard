@@ -1,0 +1,10 @@
+# MediGuard runtime dependencies (host / Raspberry Pi)
+flask
+paho-mqtt
+python-dotenv
+requests
+
+# Raspberry Pi only (physical GrovePi sensors/actuators over I2C).
+# Not needed on a laptop -- the drivers fall back to simulation automatically.
+# smbus2
+# RPi.GPIO
