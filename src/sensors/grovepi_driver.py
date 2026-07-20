@@ -40,14 +40,25 @@ def _send(data):
     """Send a 4-byte command frame to the firmware (no-op in simulation)."""
     if SIMULATION:
         return
-    bus.write_i2c_block_data(GROVEPI_ADDR, 0, data)
+    for attempt in range(3):
+        try:
+            bus.write_i2c_block_data(GROVEPI_ADDR, 0, data)
+            return
+        except OSError:
+            time.sleep(0.01)
+    raise OSError("I2C write failed after 3 attempts")
 
 
 def _receive(n):
     """Read n bytes back from the firmware's register 1."""
     if SIMULATION:
         return [0] * n
-    return bus.read_i2c_block_data(GROVEPI_ADDR, 1, n)
+    for attempt in range(3):
+        try:
+            return bus.read_i2c_block_data(GROVEPI_ADDR, 1, n)
+        except OSError:
+            time.sleep(0.01)
+    raise OSError("I2C read failed after 3 attempts")
 
 
 # the real grovepi library
