@@ -247,17 +247,17 @@ def goal_from_state(state: dict) -> tuple[str, str, str]:
     if room_state == "hazardous":
         goal_name, priority, modes = (
             "Handle hazardous room condition", "critical",
-            {"light": "bright", "buzzer": "high", "red_led": "on"},
+            {"light": "bright", "door": "unlocked", "buzzer": "high", "red_led": "on"},
         )
     elif room_state == "emergency":
         goal_name, priority, modes = (
             "Handle emergency / SOS condition", "critical",
-            {"light": "bright", "buzzer": "high", "red_led": "on"},
+            {"light": "bright", "door": "unlocked", "buzzer": "high", "red_led": "on"},
         )
     elif patient_state == "distress":
         goal_name, priority, modes = (
             "Handle patient distress", "critical",
-            {"light": "bright", "buzzer": "high", "red_led": "on"},
+            {"light": "bright", "door": "unlocked", "buzzer": "high", "red_led": "on"},
         )
     elif patient_state == "out_of_bed":
         # Light/fan/door untouched. Blink the LED; low alarm only after 15 min.
@@ -855,36 +855,48 @@ def on_message(client: mqtt.Client, userdata, msg):
 
     problem_text, goal_name, priority, modes = generate_problem_pddl(state)
 
-    try:
-        plan_lines = run_planner(problem_text, modes)
-        print("\nPDDL plan found:")
-        for line in plan_lines:
-            print(line)
+    def plan_and_execute():
+        try:
+            plan_lines = run_planner(problem_text, modes)
+            
+            # Drop stale plan if the state changed while we were planning
+            if current_signature != previous_goal_signature:
+                print("[planner] state changed during planning. Dropping stale plan.")
+                return
 
-        execute_pddl_plan(client, room_id, plan_lines, priority)
-        publish_plan_to_dashboard(
-            client=client,
-            room_id=room_id,
-            goal_name=goal_name,
-            priority=priority,
-            plan_lines=plan_lines,
-            status="plan_found"
-        )
+            print("\nPDDL plan found:")
+            for line in plan_lines:
+                print(line)
 
-    except Exception as e:
-        error_msg = str(e)
-        print("\nPlanner failed:")
-        print(error_msg)
+            execute_pddl_plan(client, room_id, plan_lines, priority)
+            publish_plan_to_dashboard(
+                client=client,
+                room_id=room_id,
+                goal_name=goal_name,
+                priority=priority,
+                plan_lines=plan_lines,
+                status="plan_found"
+            )
 
-        publish_plan_to_dashboard(
-            client=client,
-            room_id=room_id,
-            goal_name=goal_name,
-            priority=priority,
-            plan_lines=[],
-            status="planner_failed",
-            reason=error_msg
-        )
+        except Exception as e:
+            error_msg = str(e)
+            print("\nPlanner failed:")
+            print(error_msg)
+
+            # Only publish failure if state hasn't changed
+            if current_signature == previous_goal_signature:
+                publish_plan_to_dashboard(
+                    client=client,
+                    room_id=room_id,
+                    goal_name=goal_name,
+                    priority=priority,
+                    plan_lines=[],
+                    status="planner_failed",
+                    reason=error_msg
+                )
+
+    import threading
+    threading.Thread(target=plan_and_execute).start()
 
 
 # ============================================================
