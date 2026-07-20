@@ -136,11 +136,9 @@ class MediGuardMqttBridge:
             self._set_red_led_mode("off")
             return
 
-        # Critical states (hazardous / emergency / distress): max light, unlock
-        # for access, high alarm, solid red LED. The fan is left untouched, per
-        # the Final Document.
+        # Critical states (hazardous / emergency / distress): max light.
+        # Lock toggle is disabled on dashboard, but we no longer force unlock.
         self._apply_light(100)
-        self._apply_door("1")
         self._set_buzzer_mode("high")
         self._set_red_led_mode("on")
 

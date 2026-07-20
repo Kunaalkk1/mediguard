@@ -247,17 +247,17 @@ def goal_from_state(state: dict) -> tuple[str, str, str]:
     if room_state == "hazardous":
         goal_name, priority, modes = (
             "Handle hazardous room condition", "critical",
-            {"light": "bright", "door": "unlocked", "buzzer": "high", "red_led": "on"},
+            {"light": "bright", "buzzer": "high", "red_led": "on"},
         )
     elif room_state == "emergency":
         goal_name, priority, modes = (
             "Handle emergency / SOS condition", "critical",
-            {"light": "bright", "door": "unlocked", "buzzer": "high", "red_led": "on"},
+            {"light": "bright", "buzzer": "high", "red_led": "on"},
         )
     elif patient_state == "distress":
         goal_name, priority, modes = (
             "Handle patient distress", "critical",
-            {"light": "bright", "door": "unlocked", "buzzer": "high", "red_led": "on"},
+            {"light": "bright", "buzzer": "high", "red_led": "on"},
         )
     elif patient_state == "out_of_bed":
         # Light/fan/door untouched. Blink the LED; low alarm only after 15 min.
