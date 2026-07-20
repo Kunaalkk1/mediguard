@@ -54,6 +54,63 @@ sirenSound.loop = true;
 
 // Door Lock Toggle (Single Image)
 const lockBtn = document.getElementById('lockBtn');
+const lightSlider = document.getElementById('lightSlider');
+const fanSlider = document.getElementById('fanSlider');
+const emergencyOverlay = document.getElementById('emergencyOverlay');
+const medEmergencyBtn = document.getElementById('medEmergencyBtn');
+const autoBtn = document.getElementById('autoBtn');
+
+// Timestamps of the last user slider drag, so the 1 s /data refresh does not
+// yank a slider out from under a finger that is currently adjusting it.
+const userAdjust = { light: 0, fan: 0 };
+let manualMode = false;
+let doorLocked = true;      // last known door state (for the lock toggle)
+let lockEnabled = true;     // false during an emergency (door forced unlocked)
+
+function renderVitals(data) {
+    if (heartRateEl) heartRateEl.textContent = data.heart_rate != null ? data.heart_rate : '--';
+    if (spo2El) spo2El.textContent = data.spo2 != null ? data.spo2 : '--';
+    if (tempValueEl && data.temperature != null) tempValueEl.textContent = `${Math.round(data.temperature)}°C`;
+    if (humidityValueEl && data.humidity != null) humidityValueEl.textContent = `${Math.round(data.humidity)}%`;
+}
+
+// Env-controls card: door icon + light/fan sliders. In AUTO the sliders mirror
+// the planner-driven state (disabled); in MANUAL they are the live control.
+function renderControls(data) {
+    const act = data.actuator_state || {};
+    const mode = data.mode || { manual: false, light: 0, fan: 0 };
+    const emergencyActive = !!(data.emergency && data.emergency.active);
+    manualMode = !!mode.manual;
+
+    // Sliders are live only in manual mode with no emergency (safety wins).
+    const controllable = manualMode && !emergencyActive;
+    if (autoBtn) autoBtn.classList.toggle('active', !manualMode);  // glow = AUTO
+    if (lightSlider) lightSlider.disabled = !controllable;
+    if (fanSlider) fanSlider.disabled = !controllable;
+
+    // Door: manual lock/unlock is available any time except during an
+    // emergency, when the toggle is disabled.
+    // We no longer sync from act.door here to prevent the UI from 
+    // automatically unlocking during/after emergencies.
+    lockEnabled = !emergencyActive;
+    if (lockBtn) {
+        lockBtn.src = doorLocked
+            ? '/static/assets/Locked_Button.png'
+            : '/static/assets/Unlocked_Button.png';
+        lockBtn.style.opacity = lockEnabled ? '1' : '0.5';
+        lockBtn.style.cursor = lockEnabled ? 'pointer' : 'not-allowed';
+    }
+
+    const now = Date.now();
+    if (lightSlider && now - userAdjust.light > 1200) {
+        const v = manualMode ? mode.light : (LIGHT_PCT[act.light] != null ? LIGHT_PCT[act.light] : 0);
+        lightSlider.value = v;
+        updateSliderBackground(lightSlider);
+    }
+    if (fanSlider && now - userAdjust.fan > 1200) {
+        const v = manualMode ? mode.fan : (FAN_PCT[act.fan] != null ? FAN_PCT[act.fan] : 0);
+        fanSlider.value = v;
+        updateSliderBackground(fanSlider);
 const lockProgressFill = document.getElementById('lockProgressFill');
 let isLocked = true;
 let lockAnimationFrameId;
