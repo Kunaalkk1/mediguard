@@ -125,8 +125,9 @@ function renderControls(data) {
     if (fanSlider) fanSlider.disabled = !controllable;
 
     // Door: manual lock/unlock is available any time except during an
-    // emergency, when it is forced unlocked and the toggle is disabled.
-    doorLocked = act.door !== 'unlocked';
+    // emergency, when the toggle is disabled.
+    // We no longer sync from act.door here to prevent the UI from 
+    // automatically unlocking during/after emergencies.
     lockEnabled = !emergencyActive;
     if (lockBtn) {
         lockBtn.src = doorLocked
