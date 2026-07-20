@@ -9,8 +9,8 @@
     <meta http-equiv="Expires" content="0">
 
     <title>MediGuard Dashboard</title>
-    <link rel="icon" type="image/png" href="/static/assets/favicon.png">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+    <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
 
     <!-- PWA Settings & Mobile Web App Meta Tags -->
@@ -19,10 +19,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MediGuard">
-    <link rel="apple-touch-icon" href="/static/assets/icon-192.png">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
 
     <!-- Web App Manifest Link -->
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="manifest.json">
 </head>
 
 <body>
@@ -31,7 +31,7 @@
         <!-- HEADER -->
         <header class="header">
             <div class="logo-section">
-                <img src="/static/assets/MediGuard_Logo.png" alt="MediGuard Logo" class="logo-img">
+                <img src="assets/MediGuard_Logo.png" alt="MediGuard Logo" class="logo-img">
             </div>
             <div class="title-section">
                 <h1>INFORMATIVE WEB-UI FOR DEMO</h1>
@@ -56,22 +56,15 @@
                     <div class="monitor-data">
                         <div class="data-row">
                             <span class="data-label">Heart Rate :</span>
-                            <span class="data-value" id="heartRate">--</span>
+                            <span class="data-value">79</span>
                             <span class="data-unit">BPM</span>
                         </div>
                         <div class="data-row">
                             <span class="data-label">SPO2 :</span>
-                            <span class="data-value" id="spo2">--</span>
+                            <span class="data-value">98.2</span>
                             <span class="data-unit">%</span>
                         </div>
                     </div>
-                    <!-- Stand-in for the removed physical SpO2 sensor: a real
-                         distress reading can't be produced safely on the bench,
-                         so staff can inject one from here for the demo. (SOS is
-                         triggered by the physical button, held for 2 seconds.) -->
-                    <button class="med-emergency-btn" id="medEmergencyBtn">
-                        Simulate Medical Emergency
-                    </button>
                 </div>
 
                 <div class="card assigned-practitioners">
@@ -88,14 +81,67 @@
                     </div>
                 </div>
 
-                <div class="card raw-sensors">
-                    <div class="raw-header">
+                <div class="card scheduled-appointments">
+                    <div class="schedule-header">
                         <div class="realtime-clock" id="realtimeClock">Loading time...</div>
-                        <h2 class="card-title" style="margin-top: 5px; margin-bottom: 2px;">Raw Sensor Data</h2>
-                        <div class="disclaimer" style="margin-top: 0;">Live unprocessed readings straight from the
-                            sensors, before any bucketing or classification.</div>
+                        <h2 class="card-title" style="margin-top: 5px; margin-bottom: 2px;">Scheduled Appointments</h2>
+                        <div class="disclaimer" style="margin-top: 0;">NOTE: Appointments are subject to change based on
+                            patient status, staff availability, or other unforeseen circumstances. The below schedule
+                            will be updated accordingly.</div>
                     </div>
-                    <div class="raw-sensor-list" id="rawSensors"></div>
+                    <div class="table-wrapper">
+                        <table class="schedule-table">
+                            <thead>
+                                <tr>
+                                    <th>Date/Time</th>
+                                    <th>Staff</th>
+                                    <th>Procedure</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>24/07 18:30</td>
+                                    <td>On-call nurse</td>
+                                    <td>Pre-op Blood test</td>
+                                </tr>
+                                <tr>
+                                    <td>24/07 20:00</td>
+                                    <td>Dr. Klein</td>
+                                    <td>Pre-op Ultrasound</td>
+                                </tr>
+                                <tr>
+                                    <td>25/07 09:00</td>
+                                    <td>On-call nurse</td>
+                                    <td>Pre-op Medical Exam</td>
+                                </tr>
+                                <tr>
+                                    <td>25/07 11:00</td>
+                                    <td>Dr. Schmidt</td>
+                                    <td>Laparoscopic Cholecystectomy</td>
+                                </tr>
+                                <tr>
+                                    <td>25/07 15:00</td>
+                                    <td>Dr. Klein</td>
+                                    <td>Post-op Ultrasound</td>
+                                </tr>
+                                <tr>
+                                    <td>25/07 17:30</td>
+                                    <td>Dr. Klein</td>
+                                    <td>Post-op Medical Exam</td>
+                                </tr>
+                                <tr>
+                                    <td>25/07 18:00</td>
+                                    <td>Dr. Klein</td>
+                                    <td>Instructions and Medication</td>
+                                </tr>
+                                <tr>
+                                    <td>26/07 09:00</td>
+                                    <td>Dr. Schmidt</td>
+                                    <td>Final Check-up, Discharge</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -104,12 +150,12 @@
                 <div class="card environment-controls">
                     <div class="env-top-row">
                         <div class="env-stat">
-                            <img src="/static/assets/Temperature_Icon.png" alt="Temp" class="env-icon">
-                            <span class="env-value" id="tempValue">--°C</span>
+                            <img src="assets/Temperature_Icon.png" alt="Temp" class="env-icon">
+                            <span class="env-value">23°C</span>
                         </div>
                         <div class="env-stat">
-                            <img src="/static/assets/Humidity_Icon.png" alt="Humidity" class="env-icon">
-                            <span class="env-value" id="humidityValue">--%</span>
+                            <img src="assets/Humidity_Icon.png" alt="Humidity" class="env-icon">
+                            <span class="env-value">17%</span>
                         </div>
                         <div class="door-lock">
                             <div class="lock-toggle" id="lockToggle"
@@ -122,7 +168,7 @@
                                         stroke="var(--accent-teal)" stroke-width="4" stroke-dasharray="234.3"
                                         stroke-dashoffset="234.3" stroke-linecap="round"></rect>
                                 </svg>
-                                <img id="lockBtn" src="/static/assets/Locked_Button.png" alt="Lock Toggle"
+                                <img id="lockBtn" src="assets/Locked_Button.png" alt="Lock Toggle"
                                     style="height: 2.5rem; width: 5.5rem; cursor: pointer; object-fit: contain; position: relative; z-index: 2;">
                             </div>
                         </div>
@@ -131,58 +177,86 @@
                     <div class="env-bottom-row">
                         <div class="sliders-section">
                             <div class="slider-row">
-                                <img src="/static/assets/Light_Icon.png" alt="Light" class="slider-icon">
-                                <input type="range" min="0" max="100" value="0" class="custom-slider light-slider"
+                                <img src="assets/Light_Icon.png" alt="Light" class="slider-icon">
+                                <input type="range" min="0" max="100" value="70" class="custom-slider light-slider"
                                     id="lightSlider" disabled>
                             </div>
                             <div class="slider-row">
-                                <img src="/static/assets/Fan_Icon.png" alt="Fan" class="slider-icon">
-                                <input type="range" min="0" max="100" value="0" class="custom-slider fan-slider"
+                                <img src="assets/Fan_Icon.png" alt="Fan" class="slider-icon">
+                                <input type="range" min="0" max="100" value="40" class="custom-slider fan-slider"
                                     id="fanSlider" disabled>
                             </div>
                         </div>
                         <div class="auto-btn-section">
-                            <button class="auto-btn active" id="autoBtn" title="Autonomous (AI-planned) control">
-                                <img id="autoBtnImg" src="/static/assets/AUTO_Button.png" alt="AUTO">
+                            <button class="auto-btn active" id="autoBtn" style="position: relative;">
+                                <svg class="auto-progress" width="100%" height="100%" viewBox="0 0 100 100"
+                                    style="position: absolute; top: 0; left: 0; pointer-events: none; transform: rotate(-90deg); z-index: 0; border-radius: 50%; overflow: hidden;">
+                                    <circle id="autoProgressFill" cx="50" cy="50" r="12.5" fill="none"
+                                        stroke="var(--accent-teal)" stroke-width="25" stroke-dasharray="78.5"
+                                        stroke-dashoffset="78.5"></circle>
+                                </svg>
+                                <img id="autoBtnImg" src="assets/AUTO_Button.png" alt="AUTO"
+                                    style="position: relative; z-index: 1;">
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- AI PLANNING (replaces the old SOS/emergency card). Shows the
-                     latest PDDL plan each time the planner re-plans. -->
-                <div class="card ai-planning">
-                    <h2 class="card-title">AI PLANNING</h2>
-                    <div class="plan-meta">
-                        <div class="plan-goal" id="planGoal">Awaiting first plan…</div>
-                        <div class="plan-sub">
-                            <span class="plan-badge" id="planPriority" data-priority="normal">—</span>
-                            <span class="plan-status" id="planStatus"></span>
-                        </div>
+                <div class="card emergency-card">
+                    <h2 class="card-title">IN CASE OF AN EMERGENCY</h2>
+                    <div class="sos-container">
+                        <svg class="sos-progress" width="220" height="220" viewBox="0 0 220 220">
+                            <circle class="sos-progress-track" cx="110" cy="110" r="100"></circle>
+                            <circle class="sos-progress-fill" cx="110" cy="110" r="100" id="sosProgressFill"></circle>
+                        </svg>
+                        <button class="sos-btn" id="sosBtn">
+                            <img src="assets/SOS_Button.png" alt="SOS">
+                        </button>
                     </div>
-                    <div class="plan-actions-wrap">
-                        <div class="plan-actions-title">LATEST PLAN (being executed)</div>
-                        <ol class="plan-actions" id="planActions">
-                            <li class="plan-empty">No plan yet.</li>
-                        </ol>
-                    </div>
-                    <div class="plan-footer">
-                        <span id="planName">PDDL planner</span>
-                        <span id="planTime"></span>
-                    </div>
+                    <div class="sos-instruction">PRESS AND HOLD FOR 2 SECONDS</div>
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: closed-world state (PDDL boolean facts) -->
+            <!-- RIGHT COLUMN -->
             <div class="col right-col">
                 <div class="card current-stats">
-                    <h2 class="card-title">CURRENT STATS</h2>
+                    <h2 class="card-title">CURRENT STATES</h2>
                     <div class="stats-list">
-                        <div class="stats-subhead">Closed-world facts (PDDL, boolean)</div>
-                        <!-- Every true/false fact fed into the planner's :init:
-                             room + patient state, observed sensor facts, and the
-                             closed actuator states. Populated live from /data. -->
-                        <div class="pddl-facts" id="pddlFacts"></div>
+                        <div class="stat-row">
+                            <span class="stat-label">LED Brightness</span><span class="colon">:</span>
+                            <span class="stat-options">Off / <span class="active">Dim</span> / Bright</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">FAN Speed</span><span class="colon">:</span>
+                            <span class="stat-options">Off / Lv 1 / <span class="active">Lv 2</span> / Lv 3</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Temperature</span><span class="colon">:</span>
+                            <span class="stat-options">Cold / <span class="active">Neutral</span> / Warm /
+                                Hot</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Energy Usage</span><span class="colon">:</span>
+                            <span class="stat-options">Low Power / <span class="active">Normal</span> / High
+                                Consumption</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Room State</span><span class="colon">:</span>
+                            <span class="stat-options"><span class="active">Normal</span> / Hazardous /
+                                Emergency</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Patient State</span><span class="colon">:</span>
+                            <span class="stat-options"><span class="active">Awake</span> / Resting / Out of bed /
+                                Distressed</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card ai-insights">
+                    <h2 class="card-title">AI PLANNING AND ACTUATIONS</h2>
+                    <div class="stats-list">
+                        <!--AI PLANNING AND ACTUATIONS TO BE UPDATED-->
                     </div>
                 </div>
             </div>
@@ -192,7 +266,7 @@
     <div class="orientation-warning">
         <div class="warning-content">
             <div class="warning-logo-wrapper">
-                <img src="/static/assets/MediGuard_Logo.png" alt="MediGuard Logo" class="warning-logo">
+                <img src="assets/MediGuard_Logo.png" alt="MediGuard Logo" class="warning-logo">
             </div>
             <svg class="phone-rotate-icon" viewBox="0 0 100 100" width="120" height="120">
                 <g class="phone-group">
@@ -210,7 +284,7 @@
         </div>
     </div>
 
-    <script src="/static/script.js"></script>
+    <script src="script.js"></script>
 </body>
 
 </html>

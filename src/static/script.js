@@ -1,94 +1,58 @@
-// ============================================================================
-// MediGuard dashboard front-end
-// Polls /data for the live environment + AI plan and renders it. The only
-// interactive control is the "Simulate Medical Emergency" toggle, which stands
-// in for the removed physical SpO2 sensor.
-// ============================================================================
-
-// --- Continuous screen scaling (UHD / 4K / mobile proportional sizing) ------
+// Continuous Screen Scaling Monitor (UHD / 4K / Mobile Proportional Sizing)
 function adjustRootFontSize() {
+    const currentWidth = window.innerWidth;
+    const currentHeight = window.innerHeight;
+    
+    // We optimize for a 1440x900 base standard desktop viewport
     const baseWidth = 1440;
     const baseHeight = 900;
-    const baseFontSize = 20.5;
-    const scale = Math.min(window.innerWidth / baseWidth, window.innerHeight / baseHeight);
-    document.documentElement.style.fontSize = (baseFontSize * scale) + 'px';
+    const baseFontSize = 20.5; // Significantly increased base font size for large bold look
+    
+    // Calculate aspect ratios and constrained scale
+    const scaleX = currentWidth / baseWidth;
+    const scaleY = currentHeight / baseHeight;
+    
+    // Use the smaller scale dimension to ensure layout fits entirely on screen without overflow
+    const scale = Math.min(scaleX, scaleY);
+    
+    let targetFontSize = baseFontSize * scale;
+    
+    document.documentElement.style.fontSize = targetFontSize + 'px';
 }
+
+// Bind resize and orientation event listeners to continuously monitor and scale layout
 window.addEventListener('resize', adjustRootFontSize);
 window.addEventListener('orientationchange', adjustRootFontSize);
-adjustRootFontSize();
+adjustRootFontSize(); // Apply scale immediately
 
-// --- Real-time clock --------------------------------------------------------
+// Real-time Clock Update
 function updateClock() {
     const clockElement = document.getElementById('realtimeClock');
-    if (!clockElement) return;
     const now = new Date();
+    
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayName = days[now.getDay()];
+    
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
-    clockElement.textContent = `${days[now.getDay()]}, ${day}/${month}/${now.getFullYear()} - ${hours}:${minutes}`;
+    
+    clockElement.textContent = `${dayName}, ${day}/${month}/${year} - ${hours}:${minutes}`;
 }
+
 setInterval(updateClock, 1000);
-updateClock();
+updateClock(); // Initial call
 
-// --- Audio ------------------------------------------------------------------
-const sirenSound = new Audio('/static/assets/siren.mp3');
+// Audio Sound Effects (Local and Offline PWA Feedback)
+const lockSound = new Audio('assets/lock.mp3');
+const unlockSound = new Audio('assets/unlock.mp3');
+const sirenSound = new Audio('assets/siren.mp3');
 sirenSound.loop = true;
-let sirenPlaying = false;
 
-function setSiren(on) {
-    if (on && !sirenPlaying) {
-        sirenSound.currentTime = 0;
-        sirenSound.play().then(() => { sirenPlaying = true; })
-            .catch(err => console.log('Siren audio blocked:', err));
-    } else if (!on && sirenPlaying) {
-        sirenSound.pause();
-        sirenSound.currentTime = 0;
-        sirenPlaying = false;
-    }
-}
-
-// --- Helpers ----------------------------------------------------------------
-function updateSliderBackground(slider) {
-    const min = Number(slider.min) || 0;
-    const max = Number(slider.max) || 100;
-    const percentage = ((Number(slider.value) - min) / (max - min)) * 100;
-    slider.style.setProperty('--value', `${percentage}%`);
-    slider.style.setProperty('--value-num', percentage);
-}
-
-// Closed-world actuator level -> slider percentage (display only).
-const LIGHT_PCT = { off: 0, dim: 50, bright: 100 };
-const FAN_PCT = { off: 0, low: 25, medium: 50, high: 100 };
-
-// PDDL action -> human-readable step for the plan list.
-function humanizeAction(action) {
-    const name = (action.match(/\(?\s*([a-z0-9-]+)/i) || [])[1] || action;
-    const map = {
-        'set-light-off': 'Turn light off',
-        'set-light-medium': 'Dim the light',
-        'set-light-max': 'Set light to bright',
-        'set-fan-off': 'Turn fan off',
-        'set-fan-low': 'Set fan to low',
-        'set-fan-medium': 'Set fan to medium',
-        'set-fan-high': 'Set fan to high',
-        'lock-door': 'Lock the door',
-        'unlock-door': 'Unlock the door',
-        'set-buzzer-off': 'Silence buzzer',
-        'set-buzzer-low': 'Buzzer: low alert',
-        'set-buzzer-high': 'Buzzer: high alert',
-        'set-red-led-off': 'Turn alert LED off',
-        'set-red-led-blink': 'Blink alert LED',
-    };
-    return map[name] || action;
-}
-
-// --- Render loop ------------------------------------------------------------
-const heartRateEl = document.getElementById('heartRate');
-const spo2El = document.getElementById('spo2');
-const tempValueEl = document.getElementById('tempValue');
-const humidityValueEl = document.getElementById('humidityValue');
+// Door Lock Toggle (Single Image)
 const lockBtn = document.getElementById('lockBtn');
 const lightSlider = document.getElementById('lightSlider');
 const fanSlider = document.getElementById('fanSlider');
@@ -147,354 +111,310 @@ function renderControls(data) {
         const v = manualMode ? mode.fan : (FAN_PCT[act.fan] != null ? FAN_PCT[act.fan] : 0);
         fanSlider.value = v;
         updateSliderBackground(fanSlider);
-    }
-}
-
-// --- Closed-world boolean PDDL facts ---------------------------------------
-// Multi-valued room + patient state as their one-hot PDDL predicates.
-function stateFacts(data) {
-    const room = String(data.room_state || '').toLowerCase();
-    let patient = String(data.patient_state || '').toLowerCase();
-    if (patient === 'out of bed') patient = 'out-of-bed';
-    else if (patient === 'distressed') patient = 'distress';
-    return [
-        ['room-normal', room === 'normal'],
-        ['room-hazardous', room === 'hazardous'],
-        ['room-emergency', room === 'emergency'],
-        ['patient-awake', patient === 'awake'],
-        ['patient-resting', patient === 'resting'],
-        ['patient-out-of-bed', patient === 'out-of-bed'],
-        ['patient-distress', patient === 'distress'],
-    ];
-}
-
-// Actuator closed states, encoded exactly as the domain's boolean predicates.
-function actuatorFacts(act) {
-    const light = act.light || 'off';
-    const fan = act.fan || 'off';
-    const door = act.door || 'locked';
-    const buzzer = act.buzzer || 'off';
-    const led = act.red_led || 'off';
-    return [
-        ['light-on', light !== 'off'],
-        ['light-dim', light === 'dim'],
-        ['fan-on', fan !== 'off'],
-        ['fan-medium', fan === 'medium'],
-        ['fan-high', fan === 'high'],
-        ['door-locked', door === 'locked'],
-        ['door-unlocked', door === 'unlocked'],
-        ['buzzer-on', buzzer !== 'off'],
-        ['buzzer-high', buzzer === 'high'],
-        ['red-led-on', led !== 'off'],
-        ['red-led-blinking', led === 'blink'],
-    ];
-}
-
-// Observed sensor facts, matching observation_predicates() in the planner.
-function observationFacts(summary, outOfBedMinutes) {
-    const s = summary || {};
-    return [
-        ['sos-pressed', !!s.sos_pressed],
-        ['air-hazardous', s.air_quality_status === 'unsafe'],
-        ['temperature-unsafe', s.temperature_status === 'unsafe'],
-        ['temperature-hot', s.temperature_status === 'hot'],
-        ['humidity-high', s.humidity_status === 'high'],
-        ['room-dark', s.light_level === 'dark'],
-        ['patient-on-bed', !!s.pressure_on_bed],
-        ['motion-recent', !!s.pir_motion_last_15_min],
-        ['spo2-low', s.spo2_status === 'low'],
-        ['pulse-abnormal', s.pulse_status === 'abnormal'],
-        ['out-of-bed-alert-due', Number(outOfBedMinutes || 0) >= 15],
-    ];
-}
-
-const pddlFactsEl = document.getElementById('pddlFacts');
-
-function renderFacts(data) {
-    if (!pddlFactsEl) return;
-    const facts = stateFacts(data)
-        .concat(observationFacts(data.sensor_summary, data.out_of_bed_minutes))
-        .concat(actuatorFacts(data.actuator_state || {}));
-    pddlFactsEl.innerHTML = facts.map(([name, value]) =>
-        `<div class="fact"><span class="fact-name">${name}</span>` +
-        `<span class="fact-val ${value ? 'is-true' : 'is-false'}">${value ? 'TRUE' : 'FALSE'}</span></div>`
-    ).join('');
-}
-
-// --- Raw sensor data (ADC counts + volts, digital pins, other sensors) ------
-const rawSensorsEl = document.getElementById('rawSensors');
-
-function adcRow(ch) {
-    const counts = ch.counts != null ? ch.counts : '--';
-    const volts = ch.volts != null ? `${ch.volts.toFixed(3)} V` : '-- V';
-    return `<div class="raw-row adc-row">` +
-        `<span class="raw-chan">${ch.channel}</span>` +
-        `<span class="raw-name">${ch.sensor}</span>` +
-        `<span class="raw-counts">${counts}</span>` +
-        `<span class="raw-volts">${volts}</span></div>`;
-}
-
-function digitalRow(d) {
-    const on = !!d.value;
-    return `<div class="raw-row dig-row">` +
-        `<span class="raw-chan">${d.pin}</span>` +
-        `<span class="raw-name">${d.sensor}</span>` +
-        `<span class="raw-val">${on ? 'HIGH (1)' : 'LOW (0)'}</span></div>`;
-}
-
-function otherRow(o) {
-    const value = o.value != null ? o.value : '--';
-    const unit = o.unit ? ` <span class="raw-unit">${o.unit}</span>` : '';
-    return `<div class="raw-row"><span class="raw-name">${o.sensor}</span>` +
-        `<span class="raw-val">${value}${unit}</span></div>`;
-}
-
-function renderRawSensors(data) {
-    if (!rawSensorsEl) return;
-    const raw = data.raw_sensors || {};
-    const ref = raw.adc_ref || {};
-    const adc = raw.adc || [];
-    const digital = raw.digital || [];
-    const other = raw.other || [];
-
-    const adcHead = `Analog ADC · ${ref.bits || 10}-bit · 0–${ref.max || 1023} @ ${ref.vref != null ? ref.vref : 5} V`;
-    rawSensorsEl.innerHTML =
-        `<div class="raw-subhead">${adcHead}` +
-        `<span class="raw-cols"><span>raw</span><span>volts</span></span></div>` +
-        adc.map(adcRow).join('') +
-        `<div class="raw-subhead">Digital pins</div>` +
-        digital.map(digitalRow).join('') +
-        `<div class="raw-subhead">Other (I²C · DHT · virtual)</div>` +
-        other.map(otherRow).join('');
-}
-
-function renderEmergency(data) {
-    const emergency = data.emergency || { active: false };
-    const active = !!emergency.active;
-    if (emergencyOverlay) emergencyOverlay.classList.toggle('active', active);
-    document.body.classList.toggle('emergency-active', active);
-    setSiren(active);
-}
-
-function renderMedButton(toggles) {
-    if (!medEmergencyBtn) return;
-    const on = !!(toggles && toggles.vitals_emergency);
-    medEmergencyBtn.classList.toggle('active', on);
-    medEmergencyBtn.textContent = on ? 'Clear Medical Emergency' : 'Simulate Medical Emergency';
-}
-
-const planGoal = document.getElementById('planGoal');
-const planPriority = document.getElementById('planPriority');
-const planStatus = document.getElementById('planStatus');
-const planActions = document.getElementById('planActions');
-const planName = document.getElementById('planName');
-const planTime = document.getElementById('planTime');
-
-function renderPlan(plan) {
-    if (!plan || !planGoal) return;
-    planGoal.textContent = plan.goal || '—';
-
-    const priority = (plan.priority || 'normal').toLowerCase();
-    if (planPriority) {
-        planPriority.textContent = priority.toUpperCase();
-        planPriority.setAttribute('data-priority', priority);
-    }
-
-    if (planStatus) {
-        const failed = plan.status && plan.status !== 'plan_found';
-        planStatus.textContent = failed ? (plan.status || '').replace(/_/g, ' ') : '';
-        planStatus.classList.toggle('failed', !!failed);
-    }
-
-    if (planActions) {
-        const actions = Array.isArray(plan.plan) ? plan.plan : [];
-        planActions.innerHTML = '';
-        if (actions.length === 0) {
-            const li = document.createElement('li');
-            li.className = 'plan-empty';
-            li.textContent = plan.status === 'planner_failed'
-                ? 'Planner unavailable — running on local safety profile.'
-                : 'No actions required.';
-            planActions.appendChild(li);
-        } else {
-            actions.forEach(action => {
-                const li = document.createElement('li');
-                li.textContent = humanizeAction(action);
-                planActions.appendChild(li);
-            });
-        }
-    }
-
-    if (planName) {
-        planName.textContent = plan.planner_name
-            ? `${plan.planner_name} (${plan.planner_mode || 'online'})`
-            : 'PDDL planner';
-    }
-    if (planTime && plan.timestamp) {
-        planTime.textContent = plan.timestamp.replace('T', ' ');
-    }
-}
-
-async function refresh() {
-    try {
-        const res = await fetch('/data', { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = await res.json();
-        renderVitals(data);
-        renderControls(data);
-        renderRawSensors(data);
-        renderFacts(data);
-        renderEmergency(data);
-        renderMedButton(data.toggles);
-        renderPlan(data.plan);
-    } catch (err) {
-        console.log('refresh failed:', err);
-    }
-}
-setInterval(refresh, 1000);
-refresh();
-
-// --- Door lock/unlock (press and hold 0.5 s) --------------------------------
 const lockProgressFill = document.getElementById('lockProgressFill');
-const LOCK_HOLD_MS = 500;
-const LOCK_MAX_OFFSET = 234.3;
-let lockRaf = null;
-let lockStart = 0;
+let isLocked = true;
+let lockAnimationFrameId;
+let lockStartTime;
+const lockHoldDuration = 1000; // 1 second
+const lockMaxOffset = 234.3;
 
-function lockProgressStep() {
-    const progress = Math.min((Date.now() - lockStart) / LOCK_HOLD_MS, 1);
-    if (lockProgressFill) lockProgressFill.style.strokeDashoffset = LOCK_MAX_OFFSET * (1 - progress);
+function toggleLock() {
+    isLocked = !isLocked;
+    if (isLocked) {
+        lockBtn.src = 'assets/Locked_Button.png';
+        lockSound.currentTime = 0;
+        lockSound.play().catch(err => console.log('Lock audio blocked:', err));
+    } else {
+        lockBtn.src = 'assets/Unlocked_Button.png';
+        unlockSound.currentTime = 0;
+        unlockSound.play().catch(err => console.log('Unlock audio blocked:', err));
+    }
+}
+
+function updateLockProgress() {
+    const elapsed = Date.now() - lockStartTime;
+    let progress = Math.min(elapsed / lockHoldDuration, 1);
+    
+    const currentOffset = lockMaxOffset - (progress * lockMaxOffset);
+    if (lockProgressFill) lockProgressFill.style.strokeDashoffset = currentOffset;
+    
     if (progress >= 1) {
-        toggleDoor();
+        toggleLock();
         resetLockProgress();
     } else {
-        lockRaf = requestAnimationFrame(lockProgressStep);
+        lockAnimationFrameId = requestAnimationFrame(updateLockProgress);
     }
 }
 
 function startLockHold(e) {
-    if (!lockEnabled) return;                 // disabled during an emergency
+    if (emergencyOverlay && emergencyOverlay.classList.contains('active')) return;
     if (e.type === 'touchstart') e.preventDefault();
-    if (lockBtn) lockBtn.style.transform = 'scale(0.95)';
-    lockStart = Date.now();
-    lockProgressStep();
+    lockBtn.style.transform = 'scale(0.95)';
+    lockBtn.style.opacity = '0.8';
+    
+    lockStartTime = Date.now();
+    updateLockProgress();
+}
+
+function cancelLockHold() {
+    cancelAnimationFrame(lockAnimationFrameId);
+    resetLockProgress();
 }
 
 function resetLockProgress() {
-    if (lockRaf) { cancelAnimationFrame(lockRaf); lockRaf = null; }
-    if (lockBtn) lockBtn.style.transform = 'scale(1)';
-    if (lockProgressFill) lockProgressFill.style.strokeDashoffset = LOCK_MAX_OFFSET;
-}
-
-function toggleDoor() {
-    const value = doorLocked ? 'unlocked' : 'locked';
-    doorLocked = !doorLocked;                 // optimistic; /data confirms
-    if (lockBtn) {
-        lockBtn.src = doorLocked
-            ? '/static/assets/Locked_Button.png'
-            : '/static/assets/Unlocked_Button.png';
-    }
-    fetch('/api/manual/door', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value }),
-    }).then(() => refresh()).catch(err => console.log('door toggle failed:', err));
+    lockBtn.style.transform = 'scale(1)';
+    lockBtn.style.opacity = '1';
+    if (lockProgressFill) lockProgressFill.style.strokeDashoffset = lockMaxOffset;
 }
 
 if (lockBtn) {
-    lockBtn.style.transition = 'transform 0.2s';
+    lockBtn.style.transition = 'transform 0.2s, opacity 0.2s';
     lockBtn.addEventListener('mousedown', startLockHold);
-    lockBtn.addEventListener('mouseup', resetLockProgress);
-    lockBtn.addEventListener('mouseleave', resetLockProgress);
-    lockBtn.addEventListener('touchstart', startLockHold, { passive: false });
-    lockBtn.addEventListener('touchend', resetLockProgress);
-    lockBtn.addEventListener('touchcancel', resetLockProgress);
+    lockBtn.addEventListener('mouseup', cancelLockHold);
+    lockBtn.addEventListener('mouseleave', cancelLockHold);
+    lockBtn.addEventListener('touchstart', startLockHold);
+    lockBtn.addEventListener('touchend', cancelLockHold);
+    lockBtn.addEventListener('touchcancel', cancelLockHold);
 }
 
-// --- Manual / auto control interactions -------------------------------------
-const lastPost = { light: 0, fan: 0 };
+// AUTO Button Toggle (5-Second Hold)
+const autoBtn = document.getElementById('autoBtn');
+const lightSlider = document.getElementById('lightSlider');
+const fanSlider = document.getElementById('fanSlider');
+const autoProgressFill = document.getElementById('autoProgressFill');
 
-function postManual(kind, value, force) {
-    // Throttle mid-drag traffic; `force` (on release) always sends the final value.
-    const now = Date.now();
-    if (!force && now - lastPost[kind] < 120) return;
-    lastPost[kind] = now;
-    fetch(`/api/manual/${kind}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: Number(value) }),
-    }).catch(err => console.log('manual', kind, 'failed:', err));
+let autoAnimationFrameId;
+let autoStartTime;
+const autoHoldDuration = 500; // 0.5 seconds
+const autoMaxOffset = 78.5;
+
+function toggleAuto() {
+    const isActive = autoBtn.classList.toggle('active');
+    const isEmergency = emergencyOverlay && emergencyOverlay.classList.contains('active');
+    lightSlider.disabled = isEmergency ? true : isActive;
+    fanSlider.disabled = isActive;
 }
 
-function wireSlider(slider, kind) {
-    if (!slider) return;
-    slider.addEventListener('input', e => {
-        userAdjust[kind] = Date.now();
-        updateSliderBackground(e.target);
-        if (manualMode) postManual(kind, e.target.value, false);
-    });
-    slider.addEventListener('change', e => {
-        userAdjust[kind] = Date.now();
-        if (manualMode) postManual(kind, e.target.value, true);
-    });
-}
-wireSlider(lightSlider, 'light');
-wireSlider(fanSlider, 'fan');
-
-if (autoBtn) {
-    autoBtn.addEventListener('click', async () => {
-        try {
-            const res = await fetch('/api/mode/toggle', { method: 'POST' });
-            const body = await res.json();
-            manualMode = !!body.manual_mode;
-        } catch (err) {
-            console.log('mode toggle failed:', err);
-        } finally {
-            refresh();
-        }
-    });
-}
-
-// --- Medical emergency toggle (stand-in for the removed SpO2 sensor) --------
-if (medEmergencyBtn) {
-    medEmergencyBtn.addEventListener('click', async () => {
-        medEmergencyBtn.disabled = true;
-        try {
-            await fetch('/api/emergency/vitals/toggle', { method: 'POST' });
-        } catch (err) {
-            console.log('medical emergency toggle failed:', err);
-        } finally {
-            medEmergencyBtn.disabled = false;
-            refresh();
-        }
-    });
-}
-
-// --- Auto full-screen -------------------------------------------------------
-// Browsers only allow fullscreen from a user gesture, so we try immediately
-// (works in kiosk/allowed contexts) and otherwise trigger on the first tap,
-// click or key press. Once fullscreen is active the handlers are no-ops.
-function goFullscreen() {
-    const el = document.documentElement;
-    const request = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-    if (!request || document.fullscreenElement || document.webkitFullscreenElement) return;
-    try {
-        const result = request.call(el);
-        if (result && typeof result.catch === 'function') result.catch(() => {});
-    } catch (err) {
-        /* blocked without a gesture -- the interaction handlers will retry */
+function updateAutoProgress() {
+    const elapsed = Date.now() - autoStartTime;
+    let progress = Math.min(elapsed / autoHoldDuration, 1);
+    
+    const currentOffset = autoMaxOffset - (progress * autoMaxOffset);
+    if (autoProgressFill) autoProgressFill.style.strokeDashoffset = currentOffset;
+    
+    if (progress >= 1) {
+        toggleAuto();
+        resetAutoProgress();
+    } else {
+        autoAnimationFrameId = requestAnimationFrame(updateAutoProgress);
     }
 }
 
-window.addEventListener('load', goFullscreen);
-['pointerdown', 'touchend', 'keydown'].forEach(evt =>
-    document.addEventListener(evt, goFullscreen, { passive: true }));
+function startAutoHold(e) {
+    if (e.type === 'touchstart') e.preventDefault();
+    autoBtn.style.transform = 'scale(0.95)';
+    autoBtn.style.opacity = '0.9';
+    
+    autoStartTime = Date.now();
+    updateAutoProgress();
+}
 
-// --- Service worker (PWA) ---------------------------------------------------
+function cancelAutoHold() {
+    cancelAnimationFrame(autoAnimationFrameId);
+    resetAutoProgress();
+}
+
+function resetAutoProgress() {
+    autoBtn.style.transform = 'scale(1)';
+    autoBtn.style.opacity = '1';
+    if (autoProgressFill) autoProgressFill.style.strokeDashoffset = autoMaxOffset;
+}
+
+if (autoBtn) {
+    autoBtn.style.transition = 'transform 0.2s, opacity 0.2s';
+    autoBtn.addEventListener('mousedown', startAutoHold);
+    autoBtn.addEventListener('mouseup', cancelAutoHold);
+    autoBtn.addEventListener('mouseleave', cancelAutoHold);
+    autoBtn.addEventListener('touchstart', startAutoHold);
+    autoBtn.addEventListener('touchend', cancelAutoHold);
+    autoBtn.addEventListener('touchcancel', cancelAutoHold);
+}
+
+// SOS Button Logic (2 Second Hold)
+const sosBtn = document.getElementById('sosBtn');
+const sosProgressFill = document.getElementById('sosProgressFill');
+const emergencyOverlay = document.getElementById('emergencyOverlay');
+const emergencyStatusText = document.getElementById('emergencyStatusText');
+
+let holdTimer;
+let animationFrameId;
+let startTime;
+const holdDuration = 2000; // 2 seconds
+const maxOffset = 628; // circumference of circle with r=100
+
+function startHold(e) {
+    // Prevent default touch behaviors like scrolling
+    if (e.type === 'touchstart') {
+        e.preventDefault();
+    }
+    
+    // Add holding class to disable transitions during active press
+    sosProgressFill.classList.add('holding');
+    sosProgressFill.style.strokeDashoffset = maxOffset;
+    
+    startTime = Date.now();
+    updateProgress();
+}
+
+function updateProgress() {
+    const elapsed = Date.now() - startTime;
+    let progress = Math.min(elapsed / holdDuration, 1);
+    
+    // Update stroke-dashoffset (from 628 down to 0)
+    const currentOffset = maxOffset - (progress * maxOffset);
+    sosProgressFill.style.strokeDashoffset = currentOffset;
+    
+    if (progress >= 1) {
+        // Hold completed
+        triggerEmergencyToggle();
+        resetProgress();
+    } else {
+        animationFrameId = requestAnimationFrame(updateProgress);
+    }
+}
+
+function cancelHold() {
+    cancelAnimationFrame(animationFrameId);
+    resetProgress();
+}
+
+function resetProgress() {
+    // Remove holding class to trigger smooth transition back and fade out
+    sosProgressFill.classList.remove('holding');
+    sosProgressFill.style.strokeDashoffset = maxOffset;
+}
+
+let previousLightValue = 70;
+
+function triggerEmergencyToggle() {
+    emergencyOverlay.classList.toggle('active');
+    document.body.classList.toggle('emergency-active');
+    
+    if (emergencyOverlay.classList.contains('active')) {
+        if (emergencyStatusText) {
+            emergencyStatusText.innerHTML = `None / <span class="active">SOS</span> / HAZMAT / Medical Emergency`;
+        }
+        // Auto-unlock door on emergency and disable lock button visually
+        isLocked = false;
+        if (lockBtn) {
+            lockBtn.src = 'assets/Unlocked_Button.png';
+            lockBtn.style.opacity = '0.5';
+            lockBtn.style.cursor = 'not-allowed';
+        }
+        // Play looping siren sound
+        sirenSound.currentTime = 0;
+        sirenSound.play().catch(err => console.log('Siren audio blocked:', err));
+        
+        // Auto light to 100% and disable manual adjustments
+        if (lightSlider) {
+            previousLightValue = lightSlider.value;
+            lightSlider.value = 100;
+            lightSlider.disabled = true;
+            updateSliderBackground(lightSlider);
+            updateLedStatusText(100);
+        }
+    } else {
+        if (emergencyStatusText) {
+            emergencyStatusText.innerHTML = `<span class="active">None</span> / SOS / HAZMAT / Medical Emergency`;
+        }
+        if (lockBtn) {
+            lockBtn.style.opacity = '1';
+            lockBtn.style.cursor = 'pointer';
+        }
+        // Stop and reset siren sound
+        sirenSound.pause();
+        sirenSound.currentTime = 0;
+        
+        // Restore light to previous value and set disabled state based on AUTO active state
+        if (lightSlider) {
+            lightSlider.value = previousLightValue;
+            lightSlider.disabled = autoBtn ? autoBtn.classList.contains('active') : false;
+            updateSliderBackground(lightSlider);
+            updateLedStatusText(previousLightValue);
+        }
+    }
+}
+
+// Mouse events
+sosBtn.addEventListener('mousedown', startHold);
+sosBtn.addEventListener('mouseup', cancelHold);
+sosBtn.addEventListener('mouseleave', cancelHold);
+
+// Touch events
+sosBtn.addEventListener('touchstart', startHold);
+sosBtn.addEventListener('touchend', cancelHold);
+sosBtn.addEventListener('touchcancel', cancelHold);
+
+// Helper to update LED Brightness status text dynamically
+function updateLedStatusText(val) {
+    const ledBrightnessOptions = document.querySelector('.current-stats .stat-row .stat-options');
+    if (!ledBrightnessOptions) return;
+    if (val == 0) {
+        ledBrightnessOptions.innerHTML = `<span class="active">Off</span> / Dim / Bright`;
+    } else if (val <= 60) {
+        ledBrightnessOptions.innerHTML = `Off / <span class="active">Dim</span> / Bright`;
+    } else {
+        ledBrightnessOptions.innerHTML = `Off / Dim / <span class="active">Bright</span>`;
+    }
+}
+
+// Helper to update Fan Speed status text dynamically
+function updateFanStatusText(val) {
+    const fanSpeedOptions = document.querySelectorAll('.current-stats .stat-row .stat-options')[1];
+    if (!fanSpeedOptions) return;
+    if (val == 0) {
+        fanSpeedOptions.innerHTML = `<span class="active">Off</span> / Lv 1 / Lv 2 / Lv 3`;
+    } else if (val <= 33) {
+        fanSpeedOptions.innerHTML = `Off / <span class="active">Lv 1</span> / Lv 2 / Lv 3`;
+    } else if (val <= 66) {
+        fanSpeedOptions.innerHTML = `Off / Lv 1 / <span class="active">Lv 2</span> / Lv 3`;
+    } else {
+        fanSpeedOptions.innerHTML = `Off / Lv 1 / Lv 2 / <span class="active">Lv 3</span>`;
+    }
+}
+
+// Custom slider backgrounds to show fill level (Optional Enhancement)
+const sliders = document.querySelectorAll('.custom-slider');
+function updateSliderBackground(slider) {
+    const min = slider.min || 0;
+    const max = slider.max || 100;
+    const value = slider.value;
+    const percentage = ((value - min) / (max - min)) * 100;
+    slider.style.setProperty('--value', `${percentage}%`);
+    slider.style.setProperty('--value-num', percentage);
+}
+
+sliders.forEach(slider => {
+    updateSliderBackground(slider);
+    slider.addEventListener('input', (e) => {
+        updateSliderBackground(e.target);
+        if (e.target.id === 'lightSlider') {
+            updateLedStatusText(e.target.value);
+        } else if (e.target.id === 'fanSlider') {
+            updateFanStatusText(e.target.value);
+        }
+    });
+});
+
+// Register Service Worker for PWA (Progressive Web App)
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('MediGuard Service Worker registered:', reg.scope))
-            .catch(err => console.error('MediGuard Service Worker registration failed:', err));
+        navigator.serviceWorker.register('./sw.js')
+            .then(registration => {
+                console.log('MediGuard Service Worker registered successfully with scope:', registration.scope);
+            })
+            .catch(error => {
+                console.error('MediGuard Service Worker registration failed:', error);
+            });
     });
 }
